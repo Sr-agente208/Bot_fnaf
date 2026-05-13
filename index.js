@@ -1,6 +1,5 @@
 const qrcode = require('qrcode-terminal')
 const sqlite3 = require('sqlite3').verbose()
-const express = require('express')
 
 const {
 default: makeWASocket,
@@ -10,7 +9,7 @@ fetchLatestBaileysVersion
 } = require('@whiskeysockets/baileys')
 
 /* =========================
-   🧠 SQLITE (MEMÓRIA + ECONOMIA)
+   🧠 BANCO DE DADOS
 ========================= */
 
 const db = new sqlite3.Database('./fnaf.db')
@@ -18,10 +17,10 @@ const db = new sqlite3.Database('./fnaf.db')
 db.run(`
 CREATE TABLE IF NOT EXISTS users (
 jid TEXT PRIMARY KEY,
-memory TEXT DEFAULT '',
 money INTEGER DEFAULT 100,
 xp INTEGER DEFAULT 0,
-level INTEGER DEFAULT 1
+level INTEGER DEFAULT 1,
+memory TEXT DEFAULT ''
 )
 `)
 
@@ -29,7 +28,7 @@ function getUser(jid, cb) {
 db.get("SELECT * FROM users WHERE jid=?", [jid], (err, row) => {
 if (!row) {
 db.run("INSERT INTO users (jid) VALUES (?)", [jid])
-return cb({ jid, memory: "", money: 100, xp: 0, level: 1 })
+return cb({ jid, money: 100, xp: 0, level: 1, memory: "" })
 }
 cb(row)
 })
@@ -37,30 +36,25 @@ cb(row)
 
 function saveUser(u) {
 db.run(
-"UPDATE users SET memory=?, money=?, xp=?, level=? WHERE jid=?",
-[u.memory, u.money, u.xp, u.level, u.jid]
+"UPDATE users SET money=?, xp=?, level=?, memory=? WHERE jid=?",
+[u.money, u.xp, u.level, u.memory, u.jid]
 )
 }
 
 /* =========================
-   👁️ FREDDY IA COM MEMÓRIA
+   👁️ FREDDY IA
 ========================= */
 
-function freddyReply(user, text) {
+function freddyAI(user, text) {
 
-if (text.includes("oi")) {
-return "👁️ eu lembro de você..."
-}
-
-if (user.memory.includes("medo")) {
-return "💀 você ainda sente o medo... eu lembro."
-}
+user.memory += " " + text
 
 const replies = [
-"🎭 Freddy observa silenciosamente...",
-"📺 as câmeras nunca esquecem...",
-"🔪 você já esteve aqui antes...",
-"👁️ sua memória não pode ser apagada..."
+"👁️ eu lembro de você...",
+"💀 você não devia voltar aqui...",
+"📺 as câmeras nunca mentem...",
+"🔪 Freddy está perto...",
+"🎭 você já esteve aqui antes..."
 ]
 
 return replies[Math.floor(Math.random() * replies.length)]
@@ -73,10 +67,12 @@ return replies[Math.floor(Math.random() * replies.length)]
 function work(user) {
 user.money += 20
 user.xp += 10
+
 if (user.xp >= user.level * 100) {
 user.level++
 user.xp = 0
 }
+
 return user
 }
 
@@ -92,66 +88,72 @@ const win = Math.random() > 0.5
 
 if (win) {
 user.money += bet
-return `🎰 você ganhou +${bet}`
+return `🎰 ganhou +${bet}`
 } else {
 user.money -= bet
-return `💀 você perdeu -${bet}`
+return `💀 perdeu -${bet}`
 }
 }
 
 /* =========================
-   🛒 LOJA
+   💀 MENU VIVO 2.0
 ========================= */
 
-function shop(user) {
-return `
-🛒 LOJA
+async function sendMenu(sock, jid, user) {
 
-1 - energia (+50) = 50$
-2 - skin Freddy = 200$
-3 - memória limpa = 500$
-`
-}
+const hour = new Date().getHours()
 
-/* =========================
-   🌐 WEB DASHBOARD (HACKER PANEL)
-========================= */
+let fase = "NOITE"
+if (hour < 12) fase = "MANHÃ"
+if (hour >= 12 && hour < 18) fase = "TARDE"
+if (hour >= 18) fase = "NOITE"
 
-const app = express()
-
-app.get('/', (req, res) => {
-res.send(`
-<html>
-<body style="background:black;color:lime;font-family:monospace">
-<h1>💀 FNAF DASHBOARD</h1>
-<p>👁️ sistema online</p>
-<p>📊 monitoramento ativo</p>
-</body>
-</html>
-`)
-})
-
-app.listen(3000, () => console.log("🌐 dashboard http://localhost:3000"))
-
-/* =========================
-   🌍 EVENTOS GLOBAIS
-========================= */
-
-setInterval(() => {
-
-const events = [
-"👁️ Freddy se moveu nas câmeras...",
-"🔪 animatronic detectado...",
-"📺 sistema instável...",
-"💀 energia global diminuindo..."
+const freddyLines = [
+"👁️ eu estou te observando...",
+"💀 o sistema está vivo...",
+"📺 movimento detectado...",
+"🔪 algo está aqui..."
 ]
 
-console.log(events[Math.floor(Math.random() * events.length)])
+const freddy = freddyLines[Math.floor(Math.random() * freddyLines.length)]
 
-}, 30000)
+const text = `
+💀 FNAF SYSTEM LIVE
+
+⏰ Fase: ${fase}
+💰 Dinheiro: ${user.money}
+⭐ Level: ${user.level}
+
+🎮 COMANDOS:
+!work
+!casino valor
+!shop
+!freddy msg
+!panel
+
+👁️ ${freddy}
+`
+
+/* BOTÕES (SE SUPORTAR) */
+try {
+await sock.sendMessage(jid, {
+text: "🎮 MENU VIVO",
+footer: "FNAF SYSTEM",
+buttons: [
+{ buttonId: '!work', buttonText: { displayText: '💰 WORK' }, type: 1 },
+{ buttonId: '!casino 10', buttonText: { displayText: '🎰 CASINO' }, type: 1 },
+{ buttonId: '!shop', buttonText: { displayText: '🛒 SHOP' }, type: 1 }
+]
+})
+return
+} catch (e) {}
+
+/* FALLBACK */
+await sock.sendMessage(jid, { text })
+}
 
 /* =========================
-   🤖 BOT WHATSAPP
+   🚀 BOT
 ========================= */
 
 async function startBot() {
@@ -192,11 +194,15 @@ m.message.extendedTextMessage?.text ||
 ''
 ).toLowerCase()
 
+getUser(jid, async (user) => {
+
 /* =========================
-   👤 USER LOAD
+   📺 MENU
 ========================= */
 
-getUser(jid, async (user) => {
+if (body === '!menu') {
+return sendMenu(sock, jid, user)
+}
 
 /* =========================
    💰 WORK
@@ -207,7 +213,7 @@ work(user)
 saveUser(user)
 
 return sock.sendMessage(jid, {
-text: `💰 você trabalhou\nsaldo: ${user.money}`
+text: `💰 ganhou dinheiro\nTotal: ${user.money}`
 })
 }
 
@@ -216,7 +222,7 @@ text: `💰 você trabalhou\nsaldo: ${user.money}`
 ========================= */
 
 if (body.startsWith('!casino')) {
-const bet = parseInt(body.split(' ')[1])
+const bet = parseInt(body.split(' ')[1]) || 10
 const result = casino(user, bet)
 saveUser(user)
 
@@ -224,24 +230,50 @@ return sock.sendMessage(jid, { text: result })
 }
 
 /* =========================
-   🛒 SHOP
-========================= */
-
-if (body === '!shop') {
-return sock.sendMessage(jid, { text: shop(user) })
-}
-
-/* =========================
-   👁️ FREDDY AI
+   👁️ FREDDY IA
 ========================= */
 
 if (body.startsWith('!freddy')) {
 
-user.memory += " " + body
+const msg = body.replace('!freddy', '')
+const resp = freddyAI(user, msg)
+
 saveUser(user)
 
 return sock.sendMessage(jid, {
-text: freddyReply(user, body)
+text: resp
+})
+}
+
+/* =========================
+   🛒 SHOP
+========================= */
+
+if (body === '!shop') {
+return sock.sendMessage(jid, {
+text: `
+🛒 LOJA
+
+- energia
+- skin freddy
+- boost xp
+`
+})
+}
+
+/* =========================
+   📊 PANEL
+========================= */
+
+if (body === '!panel') {
+return sock.sendMessage(jid, {
+text: `
+📊 SISTEMA
+
+👥 ativo
+💾 sqlite ok
+👁️ Freddy online
+`
 })
 }
 
