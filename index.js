@@ -7,64 +7,44 @@ DisconnectReason,
 fetchLatestBaileysVersion
 } = require('@whiskeysockets/baileys')
 
-/* =========================
-   🧠 USUÁRIOS
-========================= */
-
 const users = {}
 
 function getUser(jid) {
 if (!users[jid]) {
-users[jid] = {
-money: 100,
-xp: 0,
-level: 1
-}
+users[jid] = { money: 100, xp: 0, level: 1 }
 }
 return users[jid]
 }
 
-/* =========================
-   💰 SISTEMA
-========================= */
-
-function work(user) {
-user.money += 20
-user.xp += 10
-
-if (user.xp >= user.level * 100) {
-user.level++
-user.xp = 0
+function work(u) {
+u.money += 20
+u.xp += 10
+if (u.xp >= u.level * 100) {
+u.level++
+u.xp = 0
+}
+return u
 }
 
-return user
-}
-
-function casino(user, bet) {
-if (user.money < bet) return "❌ sem dinheiro"
-
+function casino(u, bet) {
+if (u.money < bet) return "❌ sem dinheiro"
 const win = Math.random() > 0.5
-
 if (win) {
-user.money += bet
+u.money += bet
 return `🎰 ganhou +${bet}`
 } else {
-user.money -= bet
+u.money -= bet
 return `💀 perdeu -${bet}`
 }
 }
 
-/* =========================
-   📺 MENU
-========================= */
-
-function menu(user) {
+function menu(u) {
 return `
-💀 BOT FUNCIONANDO
+💀 BOT ONLINE
 
-💰 Dinheiro: ${user.money}
-⭐ Level: ${user.level}
-📊 XP: ${user.xp}
+💰 Dinheiro: ${u.money}
+⭐ Level: ${u.level}
+📊 XP: ${u.xp}
 
 COMANDOS:
 !menu
@@ -72,10 +52,6 @@ COMANDOS:
 !casino 10
 `
 }
-
-/* =========================
-   🚀 BOT
-========================= */
 
 async function startBot() {
 
@@ -86,24 +62,20 @@ const sock = makeWASocket({
 auth: state,
 version,
 printQRInTerminal: true,
-browser: ['FIX BOT', 'Chrome', '1.0']
+browser: ['BOT FIX', 'Chrome', '1.0']
 })
-
-/* =========================
-   🔌 CONEXÃO
-========================= */
 
 sock.ev.on('connection.update', ({ connection, qr, lastDisconnect }) => {
 
 if (qr) qrcode.generate(qr, { small: true })
 
 if (connection === 'close') {
-const shouldReconnect =
-lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
+const code = lastDisconnect?.error?.output?.statusCode
+console.log("❌ caiu:", code)
 
-console.log("❌ conexão caiu, reconectando...")
-
-if (shouldReconnect) startBot()
+if (code !== DisconnectReason.loggedOut) {
+setTimeout(startBot, 3000)
+}
 }
 
 if (connection === 'open') {
@@ -113,15 +85,11 @@ console.log("🤖 BOT ONLINE")
 
 sock.ev.on('creds.update', saveCreds)
 
-/* =========================
-   💬 MENSAGENS (CORRIGIDO)
-========================= */
-
-sock.ev.on('messages.upsert', async (data) => {
+sock.ev.on('messages.upsert', async ({ messages }) => {
 
 try {
 
-const m = data.messages?.[0]
+const m = messages?.[0]
 if (!m?.message || m.key.fromMe) return
 
 const jid = m.key.remoteJid
@@ -136,44 +104,37 @@ m.message.buttonsResponseMessage?.selectedButtonId ||
 ''
 ).trim().toLowerCase()
 
+if (!body) return
+
 console.log("📨 BODY:", body)
 
 const user = getUser(jid)
 
-/* =========================
-   📺 MENU
-========================= */
+/* ================= MENU ================= */
 
 if (body === '!menu') {
 return sock.sendMessage(jid, { text: menu(user) })
 }
 
-/* =========================
-   💰 WORK
-========================= */
+/* ================= WORK ================= */
 
 if (body === '!work') {
 work(user)
-
 return sock.sendMessage(jid, {
 text: `💰 ganhou dinheiro\nsaldo: ${user.money}`
 })
 }
 
-/* =========================
-   🎰 CASINO
-========================= */
+/* ================= CASINO ================= */
 
 if (body.startsWith('!casino')) {
-
 const bet = parseInt(body.split(' ')[1]) || 10
 const result = casino(user, bet)
-
 return sock.sendMessage(jid, { text: result })
 }
 
-} catch (err) {
-console.log("❌ ERRO:", err)
+} catch (e) {
+console.log("❌ ERRO:", e)
 }
 
 })
