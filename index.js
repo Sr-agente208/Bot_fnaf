@@ -14,6 +14,22 @@ const sock = makeWASocket({
 auth: state
 })
 
+sock.ev.on('connection.update' if (qr) 
+qrcode.generate(qr, { small: true })
+)}
+
+sock.ev.on('connection.update', async ({
+connection,
+lastDisconnect,
+qr
+}) => 
+
+if (qr) {
+qrcode.generate(qr, { small: true })
+console.log('📱 Escaneie o QR Code')
+
+})
+
 sock.ev.on('creds.update', saveCreds)
 
 sock.ev.on('messages.upsert', async ({ messages }) => {
