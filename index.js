@@ -7,11 +7,11 @@ DisconnectReason,
 fetchLatestBaileysVersion
 } = require('@whiskeysockets/baileys')
 
-const gameState = {}
+const game = {}
 
 function createPlayer(jid) {
-if (!gameState[jid]) {
-gameState[jid] = {
+if (!game[jid]) {
+game[jid] = {
 night: 1,
 energy: 100,
 alive: true,
@@ -19,45 +19,50 @@ door: false,
 interval: null
 }
 }
-return gameState[jid]
+return game[jid]
 }
 
-function getMenuText(state) {
+function bar(value) {
+const total = 10
+const filled = Math.round((value / 100) * total)
+return "█".repeat(filled) + "░".repeat(total - filled)
+}
+
+function hud(state) {
 return `
-🎮 FNAF SYSTEM ONLINE
+🎮 FNAF SYSTEM ACTIVE
 
-🌙 Noite: ${state.night}/6
-🔋 Energia: ${state.energy}%
-🚪 Portas: ${state.door ? 'FECHADAS' : 'ABERTAS'}
+🌙 NOITE: ${state.night}/6
+🔋 ENERGIA: ${state.energy}%
+[${bar(state.energy)}]
 
-👁️ Sobreviva até 6AM...
+🚪 PORTAS: ${state.door ? "FECHADAS" : "ABERTAS"}
+
+⚠️ Sobreviva até 6AM...
 `
 }
 
-// ===== MENU (LIST MESSAGE - FUNCIONA DE VERDADE) =====
 function sendMenu(sock, jid) {
 const state = createPlayer(jid)
 
 sock.sendMessage(jid, {
-text: getMenuText(state),
-title: "🎮 MENU FNAF",
-footer: "⚠️ Freddy Fazbear System",
-buttonText: "Abrir Menu",
+text: hud(state),
+footer: "🏚 Freddy Fazbear System",
+buttonText: "MENU",
 sections: [
 {
-title: "⚙️ AÇÕES",
+title: "AÇÕES",
 rows: [
-{ title: "🎮 Jogar", rowId: "PLAY_GAME" },
-{ title: "📺 Câmeras", rowId: "OPEN_CAM" },
-{ title: "🚪 Porta", rowId: "TOGGLE_DOOR" }
+{ title: "🎮 Iniciar", rowId: "START" },
+{ title: "📺 Câmeras", rowId: "CAM" },
+{ title: "🚪 Porta", rowId: "DOOR" }
 ]
 }
 ]
 })
 }
 
-// ===== LOOP DO JOGO =====
-function startGameLoop(sock, jid) {
+function startLoop(sock, jid) {
 const state = createPlayer(jid)
 
 if (state.interval) return
@@ -66,37 +71,40 @@ state.interval = setInterval(() => {
 
 if (!state.alive) return
 
-state.energy -= 5
+// consumo base
+state.energy -= 4
 
-// ataque aleatório
-const attack = Math.random() < 0.25
+// evento aleatório de terror
+const events = Math.random()
 
-if (attack && !state.door) {
-state.energy -= 20
-
-sock.sendMessage(jid, {
-text: "☠️ Animatronic atacou!"
-})
+// animatronic ataque
+if (events < 0.20 && !state.door) {
+state.energy -= 18
+sock.sendMessage(jid, { text: "☠️ Algo está no corredor..." })
 }
 
-// GAME OVER
+// porta aberta drena energia mais rápido
+if (!state.door) state.energy -= 2
+
+// game over
 if (state.energy <= 0) {
+state.energy = 0
 state.alive = false
 clearInterval(state.interval)
 
 sock.sendMessage(jid, {
-text: "💀 GAME OVER — você não sobreviveu"
+text: "💀 GAME OVER — você foi pego na pizzaria"
 })
 
 return
 }
 
 // avanço de noite
-if (Math.random() < 0.15) {
+if (events > 0.85) {
 state.night++
 
 sock.sendMessage(jid, {
-text: `🌙 Você sobreviveu à Noite ${state.night - 1}`
+text: `🌙 6AM chegou... você sobreviveu à noite ${state.night - 1}`
 })
 
 if (state.night > 6) {
@@ -104,17 +112,16 @@ state.alive = false
 clearInterval(state.interval)
 
 sock.sendMessage(jid, {
-text: "🏆 VOCÊ VENCEU! 6AM COMPLETADO"
+text: "🏆 VOCÊ VENCEU O JOGO COMPLETO!"
 })
 
 return
 }
 }
 
-}, 15000)
+}, 12000)
 }
 
-// ===== BOT =====
 async function startBot() {
 
 const { state, saveCreds } = await useMultiFileAuthState('./auth')
@@ -124,16 +131,15 @@ const sock = makeWASocket({
 auth: state,
 version,
 printQRInTerminal: false,
-browser: ['FNAF BOT', 'Chrome', '1.0']
+browser: ['FNAF ULTRA', 'Chrome', '1.0']
 })
 
-// conexão
 sock.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
 
 if (qr) qrcode.generate(qr, { small: true })
 
 if (connection === 'open') {
-console.log('🤖 BOT ONLINE')
+console.log('🤖 FNAF ULTRA ONLINE')
 }
 
 if (connection === 'close') {
@@ -146,7 +152,6 @@ if (shouldReconnect) startBot()
 
 sock.ev.on('creds.update', saveCreds)
 
-// mensagens
 sock.ev.on('messages.upsert', async ({ messages }) => {
 
 const m = messages[0]
@@ -164,15 +169,15 @@ m.message.listResponseMessage?.singleSelectReply?.selectedRowId ||
 
 const state = createPlayer(jid)
 
-// ===== MENU =====
+// MENU
 if (body === '!MENU') {
 sendMenu(sock, jid)
 return
 }
 
-// ===== JOGAR =====
-if (body === 'PLAY_GAME') {
-startGameLoop(sock, jid)
+// START
+if (body === 'START') {
+startLoop(sock, jid)
 
 sock.sendMessage(jid, {
 text: "🎮 Jogo iniciado... sobreviva até 6AM"
@@ -180,32 +185,27 @@ text: "🎮 Jogo iniciado... sobreviva até 6AM"
 return
 }
 
-// ===== CÂMERAS =====
-if (body === 'OPEN_CAM') {
+// CAMERA
+if (body === 'CAM') {
 sock.sendMessage(jid, {
 text: `
-📺 CAMERAS ONLINE
+📺 CÂMERAS
 
 1A - Palco
-2B - Corredor
-5 - Pirate Cove (movimento detectado)
+2B - Corredor vazio
+5 - MOVIMENTO DETECTADO
 `
 })
 return
 }
 
-// ===== PORTA =====
-if (body === 'TOGGLE_DOOR') {
-
+// DOOR
+if (body === 'DOOR') {
 state.door = !state.door
-state.energy -= 5
 
 sock.sendMessage(jid, {
-text: state.door
-? "🚪 PORTAS FECHADAS"
-: "🚪 PORTAS ABERTAS"
+text: state.door ? "🚪 PORTAS FECHADAS" : "🚪 PORTAS ABERTAS"
 })
-
 return
 }
 
