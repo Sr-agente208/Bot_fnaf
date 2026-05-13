@@ -34,21 +34,29 @@ return `
 `
 }
 
+// ===== MENU (LIST MESSAGE - FUNCIONA DE VERDADE) =====
 function sendMenu(sock, jid) {
 const state = createPlayer(jid)
 
 sock.sendMessage(jid, {
 text: getMenuText(state),
-footer: '⚠️ Freddy Fazbear System',
-buttons: [
-{ buttonId: 'PLAY_GAME', buttonText: { displayText: '🎮 Jogar' } },
-{ buttonId: 'OPEN_CAM', buttonText: { displayText: '📺 Câmeras' } },
-{ buttonId: 'TOGGLE_DOOR', buttonText: { displayText: '🚪 Porta' } }
-],
-headerType: 1
+title: "🎮 MENU FNAF",
+footer: "⚠️ Freddy Fazbear System",
+buttonText: "Abrir Menu",
+sections: [
+{
+title: "⚙️ AÇÕES",
+rows: [
+{ title: "🎮 Jogar", rowId: "PLAY_GAME" },
+{ title: "📺 Câmeras", rowId: "OPEN_CAM" },
+{ title: "🚪 Porta", rowId: "TOGGLE_DOOR" }
+]
+}
+]
 })
 }
 
+// ===== LOOP DO JOGO =====
 function startGameLoop(sock, jid) {
 const state = createPlayer(jid)
 
@@ -67,17 +75,17 @@ if (attack && !state.door) {
 state.energy -= 20
 
 sock.sendMessage(jid, {
-text: '☠️ Animatronic atacou!'
+text: "☠️ Animatronic atacou!"
 })
 }
 
-// game over
+// GAME OVER
 if (state.energy <= 0) {
 state.alive = false
 clearInterval(state.interval)
 
 sock.sendMessage(jid, {
-text: '💀 GAME OVER — você morreu na pizzaria'
+text: "💀 GAME OVER — você não sobreviveu"
 })
 
 return
@@ -96,7 +104,7 @@ state.alive = false
 clearInterval(state.interval)
 
 sock.sendMessage(jid, {
-text: '🏆 VOCÊ VENCEU! 6AM FINALIZADO'
+text: "🏆 VOCÊ VENCEU! 6AM COMPLETADO"
 })
 
 return
@@ -106,6 +114,7 @@ return
 }, 15000)
 }
 
+// ===== BOT =====
 async function startBot() {
 
 const { state, saveCreds } = await useMultiFileAuthState('./auth')
@@ -118,6 +127,7 @@ printQRInTerminal: false,
 browser: ['FNAF BOT', 'Chrome', '1.0']
 })
 
+// conexão
 sock.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
 
 if (qr) qrcode.generate(qr, { small: true })
@@ -136,6 +146,7 @@ if (shouldReconnect) startBot()
 
 sock.ev.on('creds.update', saveCreds)
 
+// mensagens
 sock.ev.on('messages.upsert', async ({ messages }) => {
 
 const m = messages[0]
@@ -143,40 +154,37 @@ if (!m.message) return
 
 const jid = m.key.remoteJid
 
-const bodyRaw =
+const body =
+(
 m.message.conversation ||
 m.message.extendedTextMessage?.text ||
-m.message.buttonsResponseMessage?.selectedButtonId ||
+m.message.listResponseMessage?.singleSelectReply?.selectedRowId ||
 ''
-
-const body = bodyRaw.trim().toUpperCase()
+).trim().toUpperCase()
 
 const state = createPlayer(jid)
 
-console.log('📩:', body)
-
-// 🎮 MENU
+// ===== MENU =====
 if (body === '!MENU') {
 sendMenu(sock, jid)
 return
 }
 
-// 🎮 START GAME
+// ===== JOGAR =====
 if (body === 'PLAY_GAME') {
 startGameLoop(sock, jid)
 
 sock.sendMessage(jid, {
-text: '🎮 Jogo iniciado... sobreviva até 6AM'
+text: "🎮 Jogo iniciado... sobreviva até 6AM"
 })
-
 return
 }
 
-// 📺 CAMERAS
+// ===== CÂMERAS =====
 if (body === 'OPEN_CAM') {
 sock.sendMessage(jid, {
 text: `
-📺 CÂMERAS ONLINE
+📺 CAMERAS ONLINE
 
 1A - Palco
 2B - Corredor
@@ -186,7 +194,7 @@ text: `
 return
 }
 
-// 🚪 PORTA
+// ===== PORTA =====
 if (body === 'TOGGLE_DOOR') {
 
 state.door = !state.door
@@ -194,8 +202,8 @@ state.energy -= 5
 
 sock.sendMessage(jid, {
 text: state.door
-? '🚪 PORTAS FECHADAS'
-: '🚪 PORTAS ABERTAS'
+? "🚪 PORTAS FECHADAS"
+: "🚪 PORTAS ABERTAS"
 })
 
 return
