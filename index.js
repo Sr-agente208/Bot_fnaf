@@ -79,7 +79,7 @@ m.message.extendedTextMessage?.text || ''
 
 console.log('📩 Mensagem:', body)
 
-```javascript
+javascript
 // ===== MENU SUPER DECORADO =====
 
 if (body === '!menu') {
@@ -151,7 +151,7 @@ caption: `
 })
 
 }
-```
+
 
 
 // ===== FNAF =====
