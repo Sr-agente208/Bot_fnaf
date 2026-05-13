@@ -16,44 +16,46 @@ night: 1,
 energy: 100,
 alive: true,
 door: false,
+cameraFail: false,
 interval: null
 }
 }
 return game[jid]
 }
 
-function bar(value) {
+function bar(v) {
 const total = 10
-const filled = Math.round((value / 100) * total)
-return "█".repeat(filled) + "░".repeat(total - filled)
+const fill = Math.max(0, Math.round((v / 100) * total))
+return "█".repeat(fill) + "░".repeat(total - fill)
 }
 
-function hud(state) {
+function hud(s) {
 return `
-🎮 FNAF SYSTEM ACTIVE
+💀 FNAF — MODO IMPOSSÍVEL
 
-🌙 NOITE: ${state.night}/6
-🔋 ENERGIA: ${state.energy}%
-[${bar(state.energy)}]
+🌙 NOITE: ${s.night}/6
+🔋 ENERGIA: ${s.energy}%
+[${bar(s.energy)}]
 
-🚪 PORTAS: ${state.door ? "FECHADAS" : "ABERTAS"}
+🚪 PORTA: ${s.door ? "FECHADA" : "ABERTA"}
+📺 CÂMERA: ${s.cameraFail ? "FALHANDO ⚠️" : "ONLINE"}
 
-⚠️ Sobreviva até 6AM...
+⚠️ ELES ESTÃO MAIS RÁPIDOS...
 `
 }
 
 function sendMenu(sock, jid) {
-const state = createPlayer(jid)
+const s = createPlayer(jid)
 
 sock.sendMessage(jid, {
-text: hud(state),
-footer: "🏚 Freddy Fazbear System",
+text: hud(s),
+footer: "☠️ SISTEMA QUEBRADO",
 buttonText: "MENU",
 sections: [
 {
-title: "AÇÕES",
+title: "AÇÕES (sobreviver)",
 rows: [
-{ title: "🎮 Iniciar", rowId: "START" },
+{ title: "🎮 Iniciar inferno", rowId: "START" },
 { title: "📺 Câmeras", rowId: "CAM" },
 { title: "🚪 Porta", rowId: "DOOR" }
 ]
@@ -62,64 +64,80 @@ rows: [
 })
 }
 
-function startLoop(sock, jid) {
-const state = createPlayer(jid)
+function startGame(sock, jid) {
+const s = createPlayer(jid)
 
-if (state.interval) return
+if (s.interval) return
 
-state.interval = setInterval(() => {
+s.interval = setInterval(() => {
 
-if (!state.alive) return
+if (!s.alive) return
 
-// consumo base
-state.energy -= 4
+// 🔥 dificuldade absurda
+s.energy -= 7
 
-// evento aleatório de terror
-const events = Math.random()
+// 👁️ IA agressiva (ataque alto)
+const attackChance = Math.random()
 
-// animatronic ataque
-if (events < 0.20 && !state.door) {
-state.energy -= 18
-sock.sendMessage(jid, { text: "☠️ Algo está no corredor..." })
+if (attackChance < 0.40 && !s.door) {
+s.energy -= 25
+sock.sendMessage(jid, { text: "☠️ ELE ESTÁ NO CORREDOR!" })
 }
 
-// porta aberta drena energia mais rápido
-if (!state.door) state.energy -= 2
+// 🚪 porta drena energia MUITO mais
+if (s.door) {
+s.energy -= 5
+}
 
-// game over
-if (state.energy <= 0) {
-state.energy = 0
-state.alive = false
-clearInterval(state.interval)
+// 📺 câmera falha aleatoriamente
+if (Math.random() < 0.20) {
+s.cameraFail = true
+} else {
+s.cameraFail = false
+}
+
+// 👁️ blackout aleatório (terror)
+if (Math.random() < 0.08) {
+sock.sendMessage(jid, {
+text: "⚡ BLACKOUT... algo se moveu..."
+})
+s.energy -= 10
+}
+
+// 💀 GAME OVER
+if (s.energy <= 0) {
+s.energy = 0
+s.alive = false
+clearInterval(s.interval)
 
 sock.sendMessage(jid, {
-text: "💀 GAME OVER — você foi pego na pizzaria"
+text: "💀 GAME OVER — você não sobreviveu ao modo impossível"
 })
 
 return
 }
 
-// avanço de noite
-if (events > 0.85) {
-state.night++
+// 🌙 progressão de noite mais rápida
+if (Math.random() < 0.18) {
+s.night++
 
 sock.sendMessage(jid, {
-text: `🌙 6AM chegou... você sobreviveu à noite ${state.night - 1}`
+text: `🌙 6AM... você sobreviveu à noite ${s.night - 1}`
 })
 
-if (state.night > 6) {
-state.alive = false
-clearInterval(state.interval)
+if (s.night > 6) {
+s.alive = false
+clearInterval(s.interval)
 
 sock.sendMessage(jid, {
-text: "🏆 VOCÊ VENCEU O JOGO COMPLETO!"
+text: "🏆 VOCÊ VENCEU O MODO IMPOSSÍVEL?! IMPOSSÍVEL MESMO..."
 })
 
 return
 }
 }
 
-}, 12000)
+}, 10000) // mais rápido = mais difícil
 }
 
 async function startBot() {
@@ -131,7 +149,7 @@ const sock = makeWASocket({
 auth: state,
 version,
 printQRInTerminal: false,
-browser: ['FNAF ULTRA', 'Chrome', '1.0']
+browser: ['FNAF IMPOSSIBLE', 'Chrome', '1.0']
 })
 
 sock.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
@@ -139,7 +157,7 @@ sock.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
 if (qr) qrcode.generate(qr, { small: true })
 
 if (connection === 'open') {
-console.log('🤖 FNAF ULTRA ONLINE')
+console.log('☠️ MODO IMPOSSÍVEL ATIVADO')
 }
 
 if (connection === 'close') {
@@ -167,44 +185,44 @@ m.message.listResponseMessage?.singleSelectReply?.selectedRowId ||
 ''
 ).trim().toUpperCase()
 
-const state = createPlayer(jid)
+const s = createPlayer(jid)
 
-// MENU
+// 🎮 MENU
 if (body === '!MENU') {
 sendMenu(sock, jid)
 return
 }
 
-// START
+// 🔥 START
 if (body === 'START') {
-startLoop(sock, jid)
+startGame(sock, jid)
 
 sock.sendMessage(jid, {
-text: "🎮 Jogo iniciado... sobreviva até 6AM"
+text: "☠️ Você escolheu sofrer... boa sorte"
 })
 return
 }
 
-// CAMERA
+// 📺 CÂMERAS
 if (body === 'CAM') {
 sock.sendMessage(jid, {
 text: `
-📺 CÂMERAS
+📺 SISTEMA FALHANDO
 
-1A - Palco
-2B - Corredor vazio
-5 - MOVIMENTO DETECTADO
+1A - MOVIMENTO DETECTADO
+2B - SINAL INSTÁVEL
+5 - ALGO ESTÁ AQUI
 `
 })
 return
 }
 
-// DOOR
+// 🚪 PORTA
 if (body === 'DOOR') {
-state.door = !state.door
+s.door = !s.door
 
 sock.sendMessage(jid, {
-text: state.door ? "🚪 PORTAS FECHADAS" : "🚪 PORTAS ABERTAS"
+text: s.door ? "🚪 FECHADO (energia drenando)" : "🚪 ABERTO (perigo máximo)"
 })
 return
 }
