@@ -1,4 +1,5 @@
 const qrcode = require('qrcode-terminal')
+const fetch = require('node-fetch')
 
 const {
 default: makeWASocket,
@@ -22,7 +23,7 @@ printQRInTerminal: false,
 browser: ['Bot FNAF', 'Chrome', '1.0.0']
 })
 
-sock.ev.on('creds.update', saveCreds)
+// ===== CONEXÃO =====
 
 sock.ev.on('connection.update', async ({
 connection,
@@ -60,6 +61,10 @@ startBot()
 
 })
 
+sock.ev.on('creds.update', saveCreds)
+
+// ===== MENSAGENS =====
+
 sock.ev.on('messages.upsert', async ({ messages }) => {
 
 const m = messages[0]
@@ -72,11 +77,19 @@ const body =
 m.message.conversation ||
 m.message.extendedTextMessage?.text || ''
 
+console.log('📩 Mensagem:', body)
+
 // ===== MENU =====
 
 if (body === '!menu') {
 
-const menu = `
+await sock.sendMessage(from, {
+
+image: {
+url: 'https://i.imgur.com/WxNkK7J.jpeg'
+},
+
+caption: `
 ╔═══『 🎮 BOT FNAF 』
 ║
 ║ 👁️ !fnaf
@@ -89,12 +102,13 @@ const menu = `
 ║ 🎵 !musica
 ║ 👻 !golden
 ║ 🔪 !springtrap
+║ 📺 !camera
+║ 💀 !glitch
+║ 🎶 !play
+║ 🐦 !twitter
 ║
 ╚═══════════
 `
-
-await sock.sendMessage(from, {
-text: menu
 })
 
 }
@@ -108,7 +122,9 @@ const frases = [
 '🎭 Os animatronics ficaram agressivos.',
 '🕰️ 5 AM... sobreviva.',
 '📺 As câmeras falharam.',
-'🔋 Energia acabando...'
+'🔋 Energia acabando...',
+'⚠️ Movimento detectado no CAM 2B.',
+'🌙 Você ouviu passos atrás de você.'
 ]
 
 const resultado =
@@ -125,7 +141,10 @@ text: resultado
 if (body === '!foxy') {
 
 await sock.sendMessage(from, {
-text: '🦊 FOXY CORREU PELO CORREDOR!'
+image: {
+url: 'https://i.imgur.com/6XQJv8x.jpeg'
+},
+caption: '🦊 FOXY CORREU PELO CORREDOR!'
 })
 
 }
@@ -154,19 +173,37 @@ text: '🐤 Chica está na cozinha fazendo barulho.'
 
 if (body === '!jumpscare') {
 
-const sustos = [
-'☠️ BOO!',
-'👹 VOCÊ MORREU.',
-'🔪 Springtrap apareceu.',
-'📺 Tela perdida.',
-'🩸 Algo abriu a porta.'
+const jumpscares = [
+
+{
+gif: 'https://media.tenor.com/IHdlTRsmcS4AAAAC/fnaf-jumpscare.gif',
+texto: '☠️ Freddy te pegou.'
+},
+
+{
+gif: 'https://media.tenor.com/akG7iJx2jWAAAAAC/foxy-fnaf.gif',
+texto: '🦊 Foxy atacou do corredor.'
+},
+
+{
+gif: 'https://media.tenor.com/cK9HcJ6p8x8AAAAC/springtrap-fnaf.gif',
+texto: '🔪 Springtrap apareceu.'
+},
+
+{
+gif: 'https://media.tenor.com/6K0wS6Sx9sAAAAAC/fnaf.gif',
+texto: '👻 Golden Freddy surgiu.'
+}
+
 ]
 
 const scare =
-sustos[Math.floor(Math.random() * sustos.length)]
+jumpscares[Math.floor(Math.random() * jumpscares.length)]
 
 await sock.sendMessage(from, {
-text: scare
+video: { url: scare.gif },
+gifPlayback: true,
+caption: scare.texto
 })
 
 }
@@ -227,7 +264,144 @@ text: '🔪 Springtrap entrou na ventilação.'
 
 }
 
+// ===== CAMERA =====
+
+if (body === '!camera') {
+
+const cameras = [
+'📺 CAM 1A: Palco principal.',
+'📺 CAM 2B: Movimento detectado.',
+'📺 CAM 4A: Corredor vazio.',
+'📺 CAM 5: Pirate Cove aberta.',
+'📺 CAM 6: Sinal perdido.'
+]
+
+const cam =
+cameras[Math.floor(Math.random() * cameras.length)]
+
+await sock.sendMessage(from, {
+text: cam
 })
+
+}
+
+// ===== GLITCH =====
+
+if (body === '!glitch') {
+
+await sock.sendMessage(from, {
+text: '̷Y̷O̷U̷ ̷C̷A̷N̷\'̷T̷ ̷S̷A̷V̷E̷'
+})
+
+}
+
+// ===== PLAY =====
+
+if (body.startsWith('!play ')) {
+
+const query = body.slice(6)
+
+if (!query) {
+
+return sock.sendMessage(from, {
+text: '🎶 Digite o nome da música.'
+})
+
+}
+
+await sock.sendMessage(from, {
+text: `🔎 Procurando: ${query}`
+})
+
+await sock.sendMessage(from, {
+image: {
+url: 'https://i.imgur.com/WxNkK7J.jpeg'
+},
+caption: `
+🎵 Música encontrada
+
+🔎 Pesquisa: ${query}
+
+⚠️ Sistema em desenvolvimento.
+`
+})
+
+}
+
+// ===== TWITTER =====
+
+if (body.startsWith('!twitter ')) {
+
+const q = body.slice(9)
+
+if (!q) {
+
+return sock.sendMessage(from, {
+text: '❌ Envie um link do Twitter/X.'
+})
+
+}
+
+await sock.sendMessage(from, {
+text: '⏳ Baixando vídeo do Twitter...'
+})
+
+try {
+
+let autor = 'Desconhecido'
+
+const match =
+q.match(/twitter\.com\/([^\/]+)|x\.com\/([^\/]+)/)
+
+if (match) {
+autor = match[1] || match[2]
+}
+
+const api =
+`https://api.vreden.my.id/api/twitter?url=${encodeURIComponent(q)}`
+
+const response = await fetch(api)
+
+const json = await response.json()
+
+if (!json.result || !json.result.media) {
+
+return sock.sendMessage(from, {
+text: '❌ Não foi possível baixar.'
+})
+
+}
+
+const video = json.result.media[0].url
+
+await sock.sendMessage(from, {
+
+video: { url: video },
+
+mimetype: 'video/mp4',
+
+caption: `
+✅ Vídeo baixado
+
+👤 Criador: @${autor}
+`
+
+})
+
+} catch (e) {
+
+console.log(e)
+
+await sock.sendMessage(from, {
+text: '❌ Erro ao baixar vídeo.'
+})
+
+}
+
+}
+
+})
+
 }
 
 startBot()
