@@ -1,10 +1,4 @@
 const qrcode = require('qrcode-terminal')
-const fetch = require('node-fetch')
-const ytdl = require('ytdl-core')
-const axios = require('axios')
-const ffmpeg = require('fluent-ffmpeg')
-const fs = require('fs')
-
 const {
 default: makeWASocket,
 useMultiFileAuthState,
@@ -12,255 +6,177 @@ DisconnectReason,
 fetchLatestBaileysVersion
 } = require('@whiskeysockets/baileys')
 
-/* =========================
-   ⚙️ CONFIG
-========================= */
-
-const ADMIN_JIDS = ['SEU_NUMERO@s.whatsapp.net']
-
-const spam = {}
-const queue = []
-let processing = false
-
-const game = {}
+const fs = require('fs')
 
 /* =========================
-   🚫 ANTI-SPAM
+   👁️ ASSETS HORROR
 ========================= */
 
-function checkSpam(jid) {
-const now = Date.now()
+const gifs = [
+'https://media.tenor.com/T6dLJx9n8qUAAAAC/golden-freddy.gif',
+'https://media.tenor.com/6K0wS6Sx9sAAAAAC/fnaf.gif',
+'https://media.tenor.com/IHdlTRsmcS4AAAAC/fnaf-jumpscare.gif'
+]
 
-if (!spam[jid]) spam[jid] = { time: now, count: 0 }
+const horrorAudio = [
+'https://files.catbox.moe/9k8x1k.mp3' // troca se quiser
+]
 
-if (now - spam[jid].time < 3000) spam[jid].count++
-else spam[jid] = { time: now, count: 1 }
-
-return spam[jid].count > 5
-}
-
-/* =========================
-   📥 FILA DE DOWNLOAD
-========================= */
-
-function addQueue(task) {
-queue.push(task)
-processQueue()
-}
-
-async function processQueue() {
-if (processing) return
-processing = true
-
-while (queue.length > 0) {
-const task = queue.shift()
-try {
-await task.run()
-} catch (e) {
-console.log("Erro fila:", e)
-}
-}
-
-processing = false
-}
+const sleep = (ms) => new Promise(r => setTimeout(r, ms))
 
 /* =========================
    🎮 GAME STATE
 ========================= */
+
+const game = {}
 
 function createPlayer(jid) {
 if (!game[jid]) {
 game[jid] = {
 night: 1,
 energy: 100,
-alive: true,
-door: false,
-interval: null,
-achievements: []
+door: false
 }
 }
 return game[jid]
 }
 
-function bar(v) {
-const total = 10
-const fill = Math.round((v / 100) * total)
-return "█".repeat(fill) + "░".repeat(total - fill)
-}
-
 /* =========================
-   🎮 MENUS
+   📺 CÂMERA FAKE
 ========================= */
 
-function sendSurvivalMenu(sock, jid) {
+async function fakeCamera(sock, jid) {
+await sock.sendMessage(jid, { text: "📺 Conectando câmeras..." })
+await sleep(700)
+
+await sock.sendMessage(jid, { text: "📡 SINAL INSTÁVEL..." })
+await sleep(700)
+
+await sock.sendMessage(jid, { text: "📺 CAM 1A: movimento detectado" })
+await sleep(700)
+
+await sock.sendMessage(jid, { text: "📺 CAM 2B: sombra passou..." })
+await sleep(700)
+
+await sock.sendMessage(jid, { text: "⚠️ SISTEMA FALHANDO..." })
+}
+
+/* =========================
+   🎮 MENU PRINCIPAL
+========================= */
+
+async function sendMenu(sock, jid) {
+
+await sock.sendPresenceUpdate('composing', jid)
+
+const gif = gifs[Math.floor(Math.random() * gifs.length)]
+
+await sock.sendMessage(jid, {
+image: { url: gif },
+caption: "👁️ conectando sistema..."
+})
+
+await sleep(1000)
+
+/* 🎵 áudio ambiente */
+await sock.sendMessage(jid, {
+audio: { url: horrorAudio[0] },
+mimetype: 'audio/mp4'
+})
+
+await sleep(800)
+
+/* 📺 câmera fake */
+await fakeCamera(sock, jid)
+
+await sleep(800)
+
 const s = createPlayer(jid)
 
-sock.sendMessage(jid, {
-text: `
-💀 FNAF SURVIVAL
+await sock.sendMessage(jid, {
+image: { url: gif },
+caption: `
+💀👁️ FNAF SYSTEM ACTIVE 👁️💀
 
-🌙 NOITE: ${s.night}
-🔋 ENERGIA: ${s.energy}%
-[${bar(s.energy)}]
+🌙 Noite: ${s.night}
+🔋 Energia: ${s.energy}%
 
-Comandos:
-- START
-- CAM
-- DOOR
-`
-})
+"Ele nunca desliga..."
+
+Escolha:
+`,
+footer: "🏚 Freddy Fazbear System",
+buttonText: "ABRIR",
+sections: [
+
+{
+title: "🎮 SURVIVAL",
+rows: [
+{ title: "🔥 Iniciar", rowId: "START" },
+{ title: "📺 Câmeras", rowId: "CAM" },
+{ title: "🚪 Porta", rowId: "DOOR" }
+]
+},
+
+{
+title: "📥 MEDIA",
+rows: [
+{ title: "📺 YouTube", rowId: "!YT" },
+{ title: "🎬 TikTok", rowId: "!TIKTOK" },
+{ title: "🎵 Áudio", rowId: "!AUDIO" }
+]
+},
+
+{
+title: "👁️ HORROR",
+rows: [
+{ title: "🦊 Foxy", rowId: "!FOXY" },
+{ title: "☠️ Jumpscare", rowId: "!JUMP" }
+]
 }
 
-function sendMediaMenu(sock, jid) {
-sock.sendMessage(jid, {
-text: `
-📥 MEDIA SYSTEM
-
-📺 !yt link
-🎬 !tiktok link
-🔊 !audio link
-🧩 !sticker link
-
-⚡ sistema com fila ativa
-`
-})
-}
-
-function sendAdminPanel(sock, jid) {
-sock.sendMessage(jid, {
-text: `
-🧠 ADMIN PANEL
-
-📦 FILA: ${queue.length}
-🚫 SPAM SYSTEM: ON
-
-Comandos internos ativos
-`
+]
 })
 }
 
 /* =========================
-   🎮 FNAF LOOP
+   🎮 LOOP GAME
 ========================= */
 
 function startGame(sock, jid) {
 const s = createPlayer(jid)
 
-if (s.interval) return
+if (s.loop) return
 
-s.interval = setInterval(() => {
-
-if (!s.alive) return
+s.loop = setInterval(() => {
 
 s.energy -= 6
 
-// ataque IA
-if (Math.random() < 0.35 && !s.door) {
-s.energy -= 22
-sock.sendMessage(jid, { text: "☠️ ALGO ESTÁ NO CORREDOR..." })
+if (Math.random() < 0.3 && !s.door) {
+sock.sendMessage(jid, {
+text: "☠️ algo está no corredor..."
+})
+s.energy -= 20
 }
 
-// porta drena energia
-if (s.door) s.energy -= 3
+if (s.door) s.energy -= 2
 
-// blackout
-if (Math.random() < 0.1) {
+if (Math.random() < 0.12) {
 sock.sendMessage(jid, { text: "⚡ BLACKOUT..." })
 s.energy -= 10
 }
 
-// game over
 if (s.energy <= 0) {
-s.energy = 0
-s.alive = false
-clearInterval(s.interval)
-
-sock.sendMessage(jid, {
-text: "💀 GAME OVER"
-})
-
-return
+clearInterval(s.loop)
+sock.sendMessage(jid, { text: "💀 GAME OVER" })
 }
 
-// avanço de noite
 if (Math.random() < 0.15) {
 s.night++
 sock.sendMessage(jid, { text: `🌙 6AM... noite ${s.night - 1}` })
 }
 
 }, 12000)
-}
-
-/* =========================
-   📥 DOWNLOADS
-========================= */
-
-async function youtube(sock, jid, url) {
-await sock.sendMessage(jid, { text: "⏳ YouTube baixando..." })
-
-const info = await ytdl.getInfo(url)
-const title = info.videoDetails.title
-
-const stream = ytdl(url, { filter: 'audioandvideo' })
-
-sock.sendMessage(jid, {
-video: stream,
-caption: `📺 ${title}`
-})
-}
-
-async function tiktok(sock, jid, url) {
-await sock.sendMessage(jid, { text: "⏳ TikTok baixando..." })
-
-const res = await axios.get(
-`https://api.tiklydown.me/api/download?url=${encodeURIComponent(url)}`
-)
-
-const video = res.data.video.noWatermark
-
-await sock.sendMessage(jid, {
-video: { url: video },
-caption: "📱 TikTok baixado"
-})
-}
-
-async function audio(sock, jid, url) {
-await sock.sendMessage(jid, { text: "🎵 convertendo áudio..." })
-
-const stream = ytdl(url, { filter: 'audioonly' })
-
-sock.sendMessage(jid, {
-audio: stream,
-mimetype: 'audio/mp4'
-})
-}
-
-/* =========================
-   🧩 STICKER
-========================= */
-
-async function sticker(sock, jid, url) {
-await sock.sendMessage(jid, { text: "🧩 criando figurinha..." })
-
-const stream = ytdl(url, { filter: 'videoonly' })
-const file = fs.createWriteStream('temp.mp4')
-
-stream.pipe(file)
-
-file.on('finish', () => {
-ffmpeg('temp.mp4')
-.output('temp.webp')
-.videoFilters('scale=512:512')
-.on('end', async () => {
-await sock.sendMessage(jid, {
-sticker: fs.readFileSync('temp.webp')
-})
-
-fs.unlinkSync('temp.mp4')
-fs.unlinkSync('temp.webp')
-})
-.run()
-})
 }
 
 /* =========================
@@ -275,13 +191,23 @@ const { version } = await fetchLatestBaileysVersion()
 const sock = makeWASocket({
 auth: state,
 version,
-printQRInTerminal: false,
-browser: ['FNAF SYSTEM', 'Chrome', '1.0']
+printQRInTerminal: true,
+browser: ['FNAF HORROR', 'Chrome', '1.0']
 })
 
-sock.ev.on('connection.update', ({ connection, qr }) => {
+sock.ev.on('connection.update', ({ connection, qr, lastDisconnect }) => {
 if (qr) qrcode.generate(qr, { small: true })
-if (connection === 'open') console.log("💀 BOT ONLINE")
+
+if (connection === 'open') {
+console.log("💀 BOT ONLINE")
+}
+
+if (connection === 'close') {
+const shouldReconnect =
+lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
+
+if (shouldReconnect) startBot()
+}
 })
 
 sock.ev.on('creds.update', saveCreds)
@@ -297,74 +223,46 @@ const body =
 (
 m.message.conversation ||
 m.message.extendedTextMessage?.text ||
-m.message.listResponseMessage?.singleSelectReply?.selectedRowId ||
 ''
 ).trim().toUpperCase()
-
-/* 🚫 ANTI-SPAM */
-if (checkSpam(jid)) {
-sock.sendMessage(jid, { text: "🚫 spam detectado" })
-return
-}
 
 const s = createPlayer(jid)
 
 /* =========================
-   🎮 MENUS
+   🎮 MENU
 ========================= */
 
-if (body === '!MENU') return sendSurvivalMenu(sock, jid)
-if (body === '!MEDIA') return sendMediaMenu(sock, jid)
-if (body === '!ADMIN') {
-if (!ADMIN_JIDS.includes(jid)) return sock.sendMessage(jid, { text: "🚫 negado" })
-return sendAdminPanel(sock, jid)
-}
+if (body === '!MENU') return sendMenu(sock, jid)
 
 /* =========================
    🎮 GAME
 ========================= */
 
 if (body === 'START') return startGame(sock, jid)
-if (body === 'CAM') return sock.sendMessage(jid, { text: "📺 câmeras instáveis..." })
+
+if (body === 'CAM') return fakeCamera(sock, jid)
+
 if (body === 'DOOR') {
 s.door = !s.door
-return sock.sendMessage(jid, { text: s.door ? "🚪 FECHADO" : "🚪 ABERTO" })
+return sock.sendMessage(jid, {
+text: s.door ? "🚪 FECHADO" : "🚪 ABERTO"
+})
 }
 
 /* =========================
-   📥 DOWNLOAD QUEUE
+   👁️ MEDIA PLACEHOLDER
 ========================= */
 
-if (body.startsWith('!YT ')) {
-const url = body.replace('!YT', '').trim()
-
-return addQueue({
-run: async () => youtube(sock, jid, url)
-})
+if (body.startsWith('!YT')) {
+return sock.sendMessage(jid, { text: "📺 YouTube (integração aqui)" })
 }
 
-if (body.startsWith('!TIKTOK ')) {
-const url = body.replace('!TIKTOK', '').trim()
-
-return addQueue({
-run: async () => tiktok(sock, jid, url)
-})
+if (body.startsWith('!TIKTOK')) {
+return sock.sendMessage(jid, { text: "🎬 TikTok (integração aqui)" })
 }
 
-if (body.startsWith('!AUDIO ')) {
-const url = body.replace('!AUDIO', '').trim()
-
-return addQueue({
-run: async () => audio(sock, jid, url)
-})
-}
-
-if (body.startsWith('!STICKER ')) {
-const url = body.replace('!STICKER', '').trim()
-
-return addQueue({
-run: async () => sticker(sock, jid, url)
-})
+if (body.startsWith('!AUDIO')) {
+return sock.sendMessage(jid, { text: "🎵 Áudio (integração aqui)" })
 }
 
 })
