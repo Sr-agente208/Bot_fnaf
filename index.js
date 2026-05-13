@@ -79,8 +79,7 @@ m.message.extendedTextMessage?.text || ''
 
 console.log('📩 Mensagem:', body)
 
-javascript
-// ===== MENU SUPER DECORADO =====
+// ===== MENU ULTRA ESTILIZADO =====
 
 if (body === '!menu') {
 
@@ -93,65 +92,51 @@ url: 'https://media.tenor.com/IHdlTRsmcS4AAAAC/fnaf-jumpscare.gif'
 gifPlayback: true,
 
 caption: `
-╔══════════════════════╗
-║ 🎮 𝑩𝑶𝑻 𝑭𝑵𝑨𝑭 🎮
-╠══════════════════════╣
-║
-║ 👁️ 𝐅𝐍𝐀𝐅
-║ ➤ !fnaf
-║
-║ 🦊 𝐅𝐎𝐗𝐘
-║ ➤ !foxy
-║
-║ 🧸 𝐁𝐎𝐍𝐍𝐈𝐄
-║ ➤ !bonnie
-║
-║ 🐤 𝐂𝐇𝐈𝐂𝐀
-║ ➤ !chica
-║
-║ ☠️ 𝐉𝐔𝐌𝐏𝐒𝐂𝐀𝐑𝐄
-║ ➤ !jumpscare
-║
-║ 🔋 𝐄𝐍𝐄𝐑𝐆𝐈𝐀
-║ ➤ !energia
-║
-║ 🌙 𝐍𝐈𝐆𝐇𝐓
-║ ➤ !night
-║
-║ 🎵 𝐌𝐔𝐒𝐈𝐂𝐀
-║ ➤ !musica
-║
-║ 👻 𝐆𝐎𝐋𝐃𝐄𝐍 𝐅𝐑𝐄𝐃𝐃𝐘
-║ ➤ !golden
-║
-║ 🔪 𝐒𝐏𝐑𝐈𝐍𝐆𝐓𝐑𝐀𝐏
-║ ➤ !springtrap
-║
-║ 📺 𝐂𝐀𝐌𝐄𝐑𝐀𝐒
-║ ➤ !camera
-║
-║ 💀 𝐆𝐋𝐈𝐓𝐂𝐇
-║ ➤ !glitch
-║
-║ 🎶 𝐏𝐋𝐀𝐘
-║ ➤ !play nome
-║
-║ 🐦 𝐓𝐖𝐈𝐓𝐓𝐄𝐑
-║ ➤ !twitter link
-║
-╠══════════════════════╣
-║ ⚠️ 𝗦𝗢𝗕𝗥𝗘𝗩𝗜𝗩𝗔 𝗔𝗧𝗘 𝟲𝗔𝗠
-║ 🔋 𝗘𝗖𝗢𝗡𝗢𝗠𝗜𝗭𝗘 𝗘𝗡𝗘𝗥𝗚𝗜𝗔
-║ 👁️ 𝗘𝗟𝗘𝗦 𝗘𝗦𝗧𝗔̃𝗢 𝗢𝗟𝗛𝗔𝗡𝗗𝗢
-╚══════════════════════╝
+┏━━━━━━━━━━━━━━━━━━━┓
+┃ 🎮 𝗕𝗢𝗧 • 𝗙𝗡𝗔𝗙 🎮 ┃
+┗━━━━━━━━━━━━━━━━━━━┛
+
+╭━━━ 👁️ HORROR MENU 👁️ ━━━╮
+
+│ 🦊 ➤ !foxy
+│ 🧸 ➤ !bonnie
+│ 🐤 ➤ !chica
+│ 👻 ➤ !golden
+│ 🔪 ➤ !springtrap
+│ ☠️ ➤ !jumpscare
+
+╰━━━━━━━━━━━━━━━━━━━╯
+
+╭━━━ 🎮 GAME MENU 🎮 ━━━╮
+
+│ 👁️ ➤ !fnaf
+│ 🌙 ➤ !night
+│ 🔋 ➤ !energia
+│ 📺 ➤ !camera
+│ 💀 ➤ !glitch
+
+╰━━━━━━━━━━━━━━━━━━━╯
+
+╭━━━ 🎵 MEDIA MENU 🎵 ━━━╮
+
+│ 🎶 ➤ !play nome
+│ 🐦 ➤ !twitter link
+│ 🎵 ➤ !musica
+
+╰━━━━━━━━━━━━━━━━━━━╯
+
+┏━━━━━━━━━━━━━━━━━━━┓
+┃ ⚠️ SOBREVIVA ATÉ 6AM
+┃ 🔋 ECONOMIZE ENERGIA
+┃ 👁️ ELES ESTÃO AQUI...
+┗━━━━━━━━━━━━━━━━━━━┛
 
 🎭 Freddy Fazbear Pizza
-📡 Sistema iniciado...
+📡 Sistema online...
 `
 })
 
 }
-
 
 
 // ===== FNAF =====
