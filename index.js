@@ -228,3 +228,6 @@ text: '🔪 Springtrap entrou na ventilação.'
 }
 
 })
+}
+
+startBot()
