@@ -1,3 +1,4 @@
+const qrcode = require('qrcode-terminal')
 const {
 default: makeWASocket,
 useMultiFileAuthState,
