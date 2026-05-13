@@ -99,7 +99,6 @@ console.log("🤖 BOT ONLINE")
 
 if (connection === 'close') {
 const code = lastDisconnect?.error?.output?.statusCode
-
 console.log("❌ caiu:", code)
 
 if (code !== DisconnectReason.loggedOut) {
@@ -112,21 +111,18 @@ setTimeout(startBot, 3000)
 sock.ev.on('creds.update', saveCreds)
 
 /* =========================
-   MESSAGES (FIX REAL)
+   MESSAGES (FIX DEFINITIVO)
 ========================= */
 
-sock.ev.on('messages.upsert', async ({ messages, type }) => {
+sock.ev.on('messages.upsert', async ({ messages }) => {
 
 try {
-
-if (type !== 'notify') return
 
 const m = messages?.[0]
 if (!m?.message) return
 if (m.key.fromMe) return
 
 const jid = m.key.remoteJid
-
 const msg = m.message
 
 const body =
