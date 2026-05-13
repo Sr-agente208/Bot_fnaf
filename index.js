@@ -15,7 +15,8 @@ gameState[jid] = {
 night: 1,
 energy: 100,
 alive: true,
-door: false
+door: false,
+interval: null
 }
 }
 return gameState[jid]
@@ -38,11 +39,11 @@ const state = createPlayer(jid)
 
 sock.sendMessage(jid, {
 text: getMenuText(state),
-footer: '⚠️ Pizzaria Freddy Fazbear',
+footer: '⚠️ Freddy Fazbear System',
 buttons: [
-{ buttonId: 'play', buttonText: { displayText: '🎮 Jogar' }, type: 1 },
-{ buttonId: 'camera', buttonText: { displayText: '📺 Câmeras' }, type: 1 },
-{ buttonId: 'door', buttonText: { displayText: '🚪 Porta' }, type: 1 }
+{ buttonId: 'PLAY_GAME', buttonText: { displayText: '🎮 Jogar' } },
+{ buttonId: 'OPEN_CAM', buttonText: { displayText: '📺 Câmeras' } },
+{ buttonId: 'TOGGLE_DOOR', buttonText: { displayText: '🚪 Porta' } }
 ],
 headerType: 1
 })
@@ -53,40 +54,41 @@ const state = createPlayer(jid)
 
 if (state.interval) return
 
-// energia cai com o tempo
 state.interval = setInterval(() => {
 
 if (!state.alive) return
 
 state.energy -= 5
 
-// animatronics atacam aleatoriamente
+// ataque aleatório
 const attack = Math.random() < 0.25
 
 if (attack && !state.door) {
 state.energy -= 20
+
 sock.sendMessage(jid, {
-text: '☠️ Animatronic atacou! Energia perdida...'
+text: '☠️ Animatronic atacou!'
 })
 }
 
-// avanço de noite
+// game over
 if (state.energy <= 0) {
 state.alive = false
 clearInterval(state.interval)
 
 sock.sendMessage(jid, {
-text: '💀 GAME OVER — você não sobreviveu...'
+text: '💀 GAME OVER — você morreu na pizzaria'
 })
 
 return
 }
 
-if (state.energy > 0 && Math.random() < 0.1) {
+// avanço de noite
+if (Math.random() < 0.15) {
 state.night++
 
 sock.sendMessage(jid, {
-text: `🌙 Você sobreviveu à Noite ${state.night - 1}!`
+text: `🌙 Você sobreviveu à Noite ${state.night - 1}`
 })
 
 if (state.night > 6) {
@@ -94,14 +96,14 @@ state.alive = false
 clearInterval(state.interval)
 
 sock.sendMessage(jid, {
-text: '🏆 VOCÊ VENCEU O JOGO! 6AM FINALIZADO'
+text: '🏆 VOCÊ VENCEU! 6AM FINALIZADO'
 })
 
 return
 }
 }
 
-}, 20000) // 20s = tick do jogo
+}, 15000)
 }
 
 async function startBot() {
@@ -113,7 +115,7 @@ const sock = makeWASocket({
 auth: state,
 version,
 printQRInTerminal: false,
-browser: ['FNAF GAME', 'Chrome', '1.0']
+browser: ['FNAF BOT', 'Chrome', '1.0']
 })
 
 sock.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
@@ -121,7 +123,7 @@ sock.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
 if (qr) qrcode.generate(qr, { small: true })
 
 if (connection === 'open') {
-console.log('🤖 FNAF BOT ONLINE')
+console.log('🤖 BOT ONLINE')
 }
 
 if (connection === 'close') {
@@ -132,6 +134,8 @@ if (shouldReconnect) startBot()
 }
 })
 
+sock.ev.on('creds.update', saveCreds)
+
 sock.ev.on('messages.upsert', async ({ messages }) => {
 
 const m = messages[0]
@@ -139,65 +143,62 @@ if (!m.message) return
 
 const jid = m.key.remoteJid
 
-const body =
-(m.message.conversation ||
+const bodyRaw =
+m.message.conversation ||
 m.message.extendedTextMessage?.text ||
 m.message.buttonsResponseMessage?.selectedButtonId ||
-'').trim().toLowerCase()
+''
+
+const body = bodyRaw.trim().toUpperCase()
 
 const state = createPlayer(jid)
 
-// MENU / START
-if (body === 'play' || body === '!menu') {
+console.log('📩:', body)
+
+// 🎮 MENU
+if (body === '!MENU') {
 sendMenu(sock, jid)
 return
 }
 
-// START GAME LOOP
-if (body === '🎮 jogar' || body === 'play') {
+// 🎮 START GAME
+if (body === 'PLAY_GAME') {
 startGameLoop(sock, jid)
 
 sock.sendMessage(jid, {
 text: '🎮 Jogo iniciado... sobreviva até 6AM'
 })
+
 return
 }
 
-// CAMERA
-if (body === '📺 câmeras' || body === 'camera') {
+// 📺 CAMERAS
+if (body === 'OPEN_CAM') {
 sock.sendMessage(jid, {
 text: `
-📺 CAMERAS ONLINE
+📺 CÂMERAS ONLINE
 
 1A - Palco
 2B - Corredor
-3C - Cozinha
 5 - Pirate Cove (movimento detectado)
 `
 })
 return
 }
 
-// DOOR TOGGLE
-if (body === '🚪 porta' || body === 'door') {
+// 🚪 PORTA
+if (body === 'TOGGLE_DOOR') {
 
 state.door = !state.door
+state.energy -= 5
 
 sock.sendMessage(jid, {
 text: state.door
-? '🚪 Portas FECHADAS — energia drenando mais rápido'
-: '🚪 Portas ABERTAS — cuidado com ataques'
+? '🚪 PORTAS FECHADAS'
+: '🚪 PORTAS ABERTAS'
 })
 
-state.energy -= 5
 return
-}
-
-// RANDOM CHAT RESPONSE (IMERSÃO)
-if (Math.random() < 0.05) {
-sock.sendMessage(jid, {
-text: '👁️ Eles estão te observando...'
-})
 }
 
 })
