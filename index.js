@@ -1,5 +1,4 @@
 const qrcode = require('qrcode-terminal')
-const fetch = require('node-fetch')
 
 const {
 default: makeWASocket,
@@ -8,56 +7,101 @@ DisconnectReason,
 fetchLatestBaileysVersion
 } = require('@whiskeysockets/baileys')
 
-const menuState = {} // controle de página por chat
+const gameState = {}
 
-const MENU_PAGES = [
-{
-title: '🎮 HORROR MENU',
-content: `
-🦊 !foxy
-🧸 !bonnie
-🐤 !chica
-👻 !golden
-🔪 !springtrap
-☠️ !jumpscare
-`
-},
-{
-title: '🎮 GAME MENU',
-content: `
-👁️ !fnaf
-🌙 !night
-🔋 !energia
-📺 !camera
-💀 !glitch
-`
-},
-{
-title: '🎵 MEDIA MENU',
-content: `
-🎶 !play nome
-🐦 !twitter link
-🎵 !musica
+function createPlayer(jid) {
+if (!gameState[jid]) {
+gameState[jid] = {
+night: 1,
+energy: 100,
+alive: true,
+door: false
+}
+}
+return gameState[jid]
+}
+
+function getMenuText(state) {
+return `
+🎮 FNAF SYSTEM ONLINE
+
+🌙 Noite: ${state.night}/6
+🔋 Energia: ${state.energy}%
+🚪 Portas: ${state.door ? 'FECHADAS' : 'ABERTAS'}
+
+👁️ Sobreviva até 6AM...
 `
 }
-]
 
-function getMenu(page = 0) {
-const p = MENU_PAGES[page]
-return `
-┏━━━━━━━━━━━━━━━━━━━┓
-┃ 🎮 BOT FNAF UI ┃
-┗━━━━━━━━━━━━━━━━━━━┛
+function sendMenu(sock, jid) {
+const state = createPlayer(jid)
 
-╭━━ ${p.title} ╾━━╮
-${p.content}
-╰━━━━━━━━━━━━━━━━━━╯
+sock.sendMessage(jid, {
+text: getMenuText(state),
+footer: '⚠️ Pizzaria Freddy Fazbear',
+buttons: [
+{ buttonId: 'play', buttonText: { displayText: '🎮 Jogar' }, type: 1 },
+{ buttonId: 'camera', buttonText: { displayText: '📺 Câmeras' }, type: 1 },
+{ buttonId: 'door', buttonText: { displayText: '🚪 Porta' }, type: 1 }
+],
+headerType: 1
+})
+}
 
-📄 Página ${page + 1}/${MENU_PAGES.length}
+function startGameLoop(sock, jid) {
+const state = createPlayer(jid)
 
-➡️ !next | ⬅️ !prev | 🎮 !menu
-⚠️ Sobreviva até 6AM...
-`
+if (state.interval) return
+
+// energia cai com o tempo
+state.interval = setInterval(() => {
+
+if (!state.alive) return
+
+state.energy -= 5
+
+// animatronics atacam aleatoriamente
+const attack = Math.random() < 0.25
+
+if (attack && !state.door) {
+state.energy -= 20
+sock.sendMessage(jid, {
+text: '☠️ Animatronic atacou! Energia perdida...'
+})
+}
+
+// avanço de noite
+if (state.energy <= 0) {
+state.alive = false
+clearInterval(state.interval)
+
+sock.sendMessage(jid, {
+text: '💀 GAME OVER — você não sobreviveu...'
+})
+
+return
+}
+
+if (state.energy > 0 && Math.random() < 0.1) {
+state.night++
+
+sock.sendMessage(jid, {
+text: `🌙 Você sobreviveu à Noite ${state.night - 1}!`
+})
+
+if (state.night > 6) {
+state.alive = false
+clearInterval(state.interval)
+
+sock.sendMessage(jid, {
+text: '🏆 VOCÊ VENCEU O JOGO! 6AM FINALIZADO'
+})
+
+return
+}
+}
+
+}, 20000) // 20s = tick do jogo
 }
 
 async function startBot() {
@@ -69,16 +113,15 @@ const sock = makeWASocket({
 auth: state,
 version,
 printQRInTerminal: false,
-browser: ['Bot FNAF', 'Chrome', '1.0.0']
+browser: ['FNAF GAME', 'Chrome', '1.0']
 })
 
-// ===== CONEXÃO =====
 sock.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
 
 if (qr) qrcode.generate(qr, { small: true })
 
 if (connection === 'open') {
-console.log('🤖 BOT ONLINE')
+console.log('🤖 FNAF BOT ONLINE')
 }
 
 if (connection === 'close') {
@@ -89,113 +132,76 @@ if (shouldReconnect) startBot()
 }
 })
 
-sock.ev.on('creds.update', saveCreds)
-
-// ===== MENSAGENS =====
 sock.ev.on('messages.upsert', async ({ messages }) => {
 
 const m = messages[0]
 if (!m.message) return
 
-const from = m.key.remoteJid
+const jid = m.key.remoteJid
 
 const body =
 (m.message.conversation ||
-m.message.extendedTextMessage?.text || '').trim().toLowerCase()
+m.message.extendedTextMessage?.text ||
+m.message.buttonsResponseMessage?.selectedButtonId ||
+'').trim().toLowerCase()
 
-console.log('📩', body)
+const state = createPlayer(jid)
 
-// ===== MENU =====
-if (body === '!menu') {
-
-menuState[from] = 0
-
-await sock.sendMessage(from, {
-video: { url: 'https://media.tenor.com/IHdlTRsmcS4AAAAC/fnaf-jumpscare.gif' },
-gifPlayback: true,
-caption: getMenu(0)
-})
-
+// MENU / START
+if (body === 'play' || body === '!menu') {
+sendMenu(sock, jid)
 return
 }
 
-// ===== NEXT PAGE =====
-if (body === '!next') {
+// START GAME LOOP
+if (body === '🎮 jogar' || body === 'play') {
+startGameLoop(sock, jid)
 
-menuState[from] = (menuState[from] || 0) + 1
-if (menuState[from] >= MENU_PAGES.length) menuState[from] = 0
-
-await sock.sendMessage(from, {
-video: { url: 'https://media.tenor.com/6K0wS6Sx9sAAAAAC/fnaf.gif' },
-gifPlayback: true,
-caption: getMenu(menuState[from])
+sock.sendMessage(jid, {
+text: '🎮 Jogo iniciado... sobreviva até 6AM'
 })
-
 return
 }
 
-// ===== PREV PAGE =====
-if (body === '!prev') {
+// CAMERA
+if (body === '📺 câmeras' || body === 'camera') {
+sock.sendMessage(jid, {
+text: `
+📺 CAMERAS ONLINE
 
-menuState[from] = (menuState[from] || 0) - 1
-if (menuState[from] < 0) menuState[from] = MENU_PAGES.length - 1
-
-await sock.sendMessage(from, {
-video: { url: 'https://media.tenor.com/zpF2l2K9jQkAAAAC/freddy-music.gif' },
-gifPlayback: true,
-caption: getMenu(menuState[from])
+1A - Palco
+2B - Corredor
+3C - Cozinha
+5 - Pirate Cove (movimento detectado)
+`
 })
-
 return
 }
 
-// ===== FOXY =====
-if (body === '!foxy') {
-await sock.sendMessage(from, {
-video: { url: 'https://media.tenor.com/akG7iJx2jWAAAAAC/foxy-fnaf.gif' },
-gifPlayback: true,
-caption: '🦊 FOXY DETECTADO! CORRE.'
+// DOOR TOGGLE
+if (body === '🚪 porta' || body === 'door') {
+
+state.door = !state.door
+
+sock.sendMessage(jid, {
+text: state.door
+? '🚪 Portas FECHADAS — energia drenando mais rápido'
+: '🚪 Portas ABERTAS — cuidado com ataques'
 })
+
+state.energy -= 5
+return
 }
 
-// ===== BONNIE =====
-if (body === '!bonnie') {
-await sock.sendMessage(from, {
-video: { url: 'https://media.tenor.com/vpN4bD5z0f8AAAAC/bonnie-fnaf.gif' },
-gifPlayback: true,
-caption: '🧸 BONNIE NO CORREDOR.'
-})
-}
-
-// ===== CHICA =====
-if (body === '!chica') {
-await sock.sendMessage(from, {
-video: { url: 'https://media.tenor.com/eTFEuQJwScMAAAAC/chica-fnaf.gif' },
-gifPlayback: true,
-caption: '🐤 CHICA NA COZINHA... isso nunca é bom.'
-})
-}
-
-// ===== JUMPSCARE =====
-if (body === '!jumpscare') {
-
-const list = [
-'☠️ Freddy te pegou.',
-'🦊 Foxy invadiu.',
-'🔪 Springtrap apareceu.',
-'👻 Golden Freddy bugou o sistema.'
-]
-
-const msg = list[Math.floor(Math.random() * list.length)]
-
-await sock.sendMessage(from, {
-video: { url: 'https://media.tenor.com/IHdlTRsmcS4AAAAC/fnaf-jumpscare.gif' },
-gifPlayback: true,
-caption: `${msg}\n\n💀 GAME OVER`
+// RANDOM CHAT RESPONSE (IMERSÃO)
+if (Math.random() < 0.05) {
+sock.sendMessage(jid, {
+text: '👁️ Eles estão te observando...'
 })
 }
 
 })
+
 }
 
 startBot()
