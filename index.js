@@ -1,4 +1,5 @@
 const qrcode = require('qrcode-terminal')
+const sqlite3 = require('sqlite3').verbose()
 const axios = require('axios')
 
 const {
@@ -9,160 +10,156 @@ fetchLatestBaileysVersion
 } = require('@whiskeysockets/baileys')
 
 /* =========================
-   🧠 ANTI CRASH (IMORTAL MODE)
+   🧠 SQLITE DATABASE
 ========================= */
 
-process.on('uncaughtException', (err) => {
-console.log('⚠️ ERRO IGNORADO:', err)
-})
+const db = new sqlite3.Database('./fnaf.db')
 
-process.on('unhandledRejection', (err) => {
-console.log('⚠️ PROMISE ERROR:', err)
+db.run(`
+CREATE TABLE IF NOT EXISTS users (
+jid TEXT PRIMARY KEY,
+money INTEGER DEFAULT 0,
+xp INTEGER DEFAULT 0,
+level INTEGER DEFAULT 1,
+skin TEXT DEFAULT 'default'
+)
+`)
+
+function getUser(jid, cb) {
+db.get("SELECT * FROM users WHERE jid=?", [jid], (err, row) => {
+if (!row) {
+db.run("INSERT INTO users (jid) VALUES (?)", [jid])
+return cb({ jid, money: 0, xp: 0, level: 1, skin: "default" })
+}
+cb(row)
 })
+}
+
+function updateUser(jid, data) {
+db.run(`
+UPDATE users
+SET money=?, xp=?, level=?, skin=?
+WHERE jid=?
+`, [data.money, data.xp, data.level, data.skin, jid])
+}
 
 /* =========================
-   👁️ ASSETS
+   💰 ECONOMIA
 ========================= */
 
-const gifs = [
-'https://media.tenor.com/T6dLJx9n8qUAAAAC/golden-freddy.gif',
-'https://media.tenor.com/IHdlTRsmcS4AAAAC/fnaf-jumpscare.gif'
+function addMoney(user, amt) {
+user.money += amt
+user.xp += amt
+
+if (user.xp >= user.level * 100) {
+user.xp = 0
+user.level++
+}
+
+return user
+}
+
+/* =========================
+   🏆 MEDALHAS / SKINS
+========================= */
+
+function getRankEmoji(level) {
+if (level >= 20) return "👑"
+if (level >= 10) return "💀"
+if (level >= 5) return "🔥"
+return "👶"
+}
+
+/* =========================
+   👁️ FREDDY AI SIMPLES
+========================= */
+
+async function freddyAI(text) {
+const replies = [
+"👁️ eu estou observando você...",
+"💀 a pizzaria nunca dorme...",
+"🔪 você não deveria ter falado isso...",
+"🎭 estou atrás de você...",
+"📺 as câmeras não mentem..."
 ]
 
-const sleep = (ms) => new Promise(r => setTimeout(r, ms))
-
-/* =========================
-   🎮 GAME STATE
-========================= */
-
-const game = {}
-
-function createPlayer(jid) {
-if (!game[jid]) {
-game[jid] = {
-energy: 100,
-night: 1,
-door: false
-}
-}
-return game[jid]
+if (text.includes("oi")) return "👁️ olá... você está seguro?"
+return replies[Math.floor(Math.random() * replies.length)]
 }
 
 /* =========================
-   🎮 MENU (SEGURO)
+   📺 MENU (FALLBACK SEGURO)
 ========================= */
 
 async function sendMenu(sock, jid) {
 
-const s = createPlayer(jid)
-const gif = gifs[Math.floor(Math.random() * gifs.length)]
+getUser(jid, async (u) => {
 
 try {
 
 await sock.sendMessage(jid, {
-image: { url: gif },
-caption: `
-💀👁️ FNAF SYSTEM ONLINE 👁️💀
+text: `
+💀 FNAF SYSTEM
 
-🌙 Noite: ${s.night}
-🔋 Energia: ${s.energy}%
+💰 Dinheiro: $${u.money}
+⭐ Level: ${u.level} ${getRankEmoji(u.level)}
+🎭 Skin: ${u.skin}
 
-Escolha:
-`,
-footer: "Fazbear System",
-buttonText: "MENU",
-sections: [
-
-{
-title: "🎮 SURVIVAL",
-rows: [
-{ title: "🔥 Iniciar", rowId: "START" },
-{ title: "📺 Câmeras", rowId: "CAM" },
-{ title: "🚪 Porta", rowId: "DOOR" }
-]
-},
-
-{
-title: "📥 MEDIA (SAFE)",
-rows: [
-{ title: "📺 YouTube", rowId: "!YT" },
-{ title: "🎬 TikTok", rowId: "!TIKTOK" }
-]
-},
-
-{
-title: "👁️ HORROR",
-rows: [
-{ title: "🦊 Foxy", rowId: "!FOXY" },
-{ title: "☠️ Jumpscare", rowId: "!JUMP" }
-]
-}
-
-]
+MENU:
+1 - Trabalhar
+2 - Loja
+3 - Rank
+4 - Freddy AI
+`
 })
 
 } catch (e) {
-console.log("MENU ERROR:", e)
-}
-}
 
-/* =========================
-   🎮 GAME LOOP (ESTÁVEL)
-========================= */
-
-function startGame(sock, jid) {
-const s = createPlayer(jid)
-
-if (s.loop) return
-
-s.loop = setInterval(() => {
-
-try {
-
-s.energy -= 5
-
-if (Math.random() < 0.25 && !s.door) {
-s.energy -= 15
-sock.sendMessage(jid, { text: "☠️ algo está no corredor..." })
-}
-
-if (s.door) s.energy -= 2
-
-if (Math.random() < 0.12) {
-sock.sendMessage(jid, { text: "⚡ BLACKOUT..." })
-s.energy -= 8
-}
-
-if (s.energy <= 0) {
-clearInterval(s.loop)
-s.loop = null
-sock.sendMessage(jid, { text: "💀 GAME OVER" })
-}
-
-if (Math.random() < 0.1) {
-s.night++
-sock.sendMessage(jid, { text: `🌙 6AM... noite ${s.night - 1}` })
-}
-
-} catch (e) {
-console.log("GAME ERROR:", e)
-}
-
-}, 12000)
-}
-
-/* =========================
-   📥 MEDIA SAFE (SEM DOWNLOAD REAL)
-========================= */
-
-async function fakeDownload(sock, jid, type) {
-try {
+// fallback (nunca morre)
 await sock.sendMessage(jid, {
-text: `📥 processando ${type}...\n⚠️ modo seguro ativo`
+text: "💀 MENU OFFLINE\n\n1 START\n2 LOJA\n3 RANK"
 })
-} catch (e) {
-console.log("MEDIA ERROR:", e)
 }
+
+})
+}
+
+/* =========================
+   🛒 LOJA
+========================= */
+
+function shop(sock, jid) {
+sock.sendMessage(jid, {
+text: `
+🛒 LOJA FNAF
+
+skins:
+- freddy (100$)
+- foxy (200$)
+- golden (500$)
+
+use: !buy skin
+`
+})
+}
+
+/* =========================
+   🏆 RANK GLOBAL
+========================= */
+
+function rank(sock, jid) {
+
+db.all("SELECT * FROM users ORDER BY level DESC LIMIT 5", (err, rows) => {
+
+let txt = "🏆 RANK GLOBAL\n\n"
+
+rows.forEach((r, i) => {
+txt += `#${i+1} @${r.jid.split('@')[0]} | LVL ${r.level} ${getRankEmoji(r.level)}\n`
+})
+
+sock.sendMessage(jid, { text: txt })
+})
+
 }
 
 /* =========================
@@ -178,16 +175,11 @@ const sock = makeWASocket({
 auth: state,
 version,
 printQRInTerminal: true,
-browser: ['FNAF IMORTAL', 'Chrome', '1.0']
+browser: ['FNAF SERVER', 'Chrome', '1.0']
 })
 
 sock.ev.on('connection.update', ({ connection, qr, lastDisconnect }) => {
-
 if (qr) qrcode.generate(qr, { small: true })
-
-if (connection === 'open') {
-console.log("💀 BOT ONLINE IMORTAL")
-}
 
 if (connection === 'close') {
 const shouldReconnect =
@@ -197,11 +189,7 @@ if (shouldReconnect) startBot()
 }
 })
 
-sock.ev.on('creds.update', saveCreds)
-
 sock.ev.on('messages.upsert', async ({ messages }) => {
-
-try {
 
 const m = messages[0]
 if (!m.message) return
@@ -213,55 +201,61 @@ const body =
 m.message.conversation ||
 m.message.extendedTextMessage?.text ||
 ''
-).trim().toUpperCase()
-
-const s = createPlayer(jid)
+).trim().toLowerCase()
 
 /* =========================
-   🎮 MENU
+   📺 MENU
 ========================= */
 
-if (body === '!MENU') return sendMenu(sock, jid)
+if (body === '!menu') return sendMenu(sock, jid)
 
 /* =========================
-   🎮 GAME
+   💰 TRABALHAR
 ========================= */
 
-if (body === 'START') return startGame(sock, jid)
+if (body === '1') {
 
-if (body === 'CAM') {
-return sock.sendMessage(jid, { text: "📺 câmeras instáveis..." })
-}
+getUser(jid, (u) => {
+addMoney(u, 50)
+updateUser(jid, u)
 
-if (body === 'DOOR') {
-s.door = !s.door
-return sock.sendMessage(jid, {
-text: s.door ? "🚪 FECHADO" : "🚪 ABERTO"
+sock.sendMessage(jid, {
+text: `💰 você trabalhou e ganhou $50\nTotal: $${u.money}`
 })
+})
+
 }
 
 /* =========================
-   📥 MEDIA SAFE
+   🛒 LOJA
 ========================= */
 
-if (body.startsWith('!YT')) {
-return fakeDownload(sock, jid, "YouTube")
+if (body === '2') return shop(sock, jid)
+
+/* =========================
+   🏆 RANK
+========================= */
+
+if (body === '3') return rank(sock, jid)
+
+/* =========================
+   👁️ FREDDY AI
+========================= */
+
+if (body === '4') {
+const resp = await freddyAI(body)
+
+sock.sendMessage(jid, { text: resp })
 }
 
-if (body.startsWith('!TIKTOK')) {
-return fakeDownload(sock, jid, "TikTok")
-}
+/* =========================
+   🤖 IA AUTOMÁTICA (chance)
+========================= */
 
-if (body.startsWith('!FOXY')) {
-return sock.sendMessage(jid, { text: "🦊 Foxy correu pelo corredor..." })
-}
-
-if (body.startsWith('!JUMP')) {
-return sock.sendMessage(jid, { text: "☠️ BOO!" })
-}
-
-} catch (e) {
-console.log("GLOBAL ERROR:", e)
+if (Math.random() < 0.03) {
+sock.sendMessage(jid, {
+text: await freddyAI("auto")
+})
 }
 
 })
