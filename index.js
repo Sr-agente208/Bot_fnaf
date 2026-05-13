@@ -118,21 +118,13 @@ sock.ev.on('creds.update', saveCreds)
 ========================= */
 
 sock.ev.on('messages.upsert', async (data) => {
-console.log("🔥 EVENTO ATIVOU")
+
+try {
 
 const m = data.messages?.[0]
+if (!m?.message || m.key.fromMe) return
 
-console.log("📦 RAW MESSAGE:", JSON.stringify(m, null, 2))
-
-if (!m?.message) {
-console.log("❌ SEM MESSAGE REAL")
-return
-}
-
-console.log("✅ TEM MESSAGE")
-
-const jid = m.key?.remoteJid
-console.log("👤 JID:", jid)
+const jid = m.key.remoteJid
 
 const body =
 (
@@ -142,12 +134,11 @@ m.message.imageMessage?.caption ||
 m.message.videoMessage?.caption ||
 m.message.buttonsResponseMessage?.selectedButtonId ||
 ''
-)
+).trim().toLowerCase()
 
-console.log("📨 BODY FINAL:", body)
+console.log("📨 BODY:", body)
 
-await sock.sendMessage(jid, { text: "TESTE OK 💀 RECEBI SUA MENSAGEM" })
-})
+const user = getUser(jid)
 
 /* =========================
    📺 MENU
