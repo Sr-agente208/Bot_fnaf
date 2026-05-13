@@ -1,5 +1,4 @@
 const qrcode = require('qrcode-terminal')
-const sqlite3 = require('sqlite3').verbose()
 
 const {
 default: makeWASocket,
@@ -9,59 +8,29 @@ fetchLatestBaileysVersion
 } = require('@whiskeysockets/baileys')
 
 /* =========================
-   🧠 BANCO DE DADOS
+   🧠 USUÁRIOS (MEMÓRIA SIMPLES)
 ========================= */
 
-const db = new sqlite3.Database('./fnaf.db')
+const users = {}
 
-db.run(`
-CREATE TABLE IF NOT EXISTS users (
-jid TEXT PRIMARY KEY,
-money INTEGER DEFAULT 100,
-xp INTEGER DEFAULT 0,
-level INTEGER DEFAULT 1,
-memory TEXT DEFAULT ''
-)
-`)
-
-function getUser(jid, cb) {
-db.get("SELECT * FROM users WHERE jid=?", [jid], (err, row) => {
-if (!row) {
-db.run("INSERT INTO users (jid) VALUES (?)", [jid])
-return cb({ jid, money: 100, xp: 0, level: 1, memory: "" })
+function getUser(jid) {
+if (!users[jid]) {
+users[jid] = {
+money: 100,
+xp: 0,
+level: 1,
+memory: ""
 }
-cb(row)
-})
+}
+return users[jid]
 }
 
-function saveUser(u) {
-db.run(
-"UPDATE users SET money=?, xp=?, level=?, memory=? WHERE jid=?",
-[u.money, u.xp, u.level, u.memory, u.jid]
-)
+function saveUser(jid, user) {
+users[jid] = user
 }
 
 /* =========================
-   👁️ FREDDY IA
-========================= */
-
-function freddyAI(user, text) {
-
-user.memory += " " + text
-
-const replies = [
-"👁️ eu lembro de você...",
-"💀 você não devia voltar aqui...",
-"📺 as câmeras nunca mentem...",
-"🔪 Freddy está perto...",
-"🎭 você já esteve aqui antes..."
-]
-
-return replies[Math.floor(Math.random() * replies.length)]
-}
-
-/* =========================
-   💰 ECONOMIA
+   💰 FUNÇÕES
 ========================= */
 
 function work(user) {
@@ -75,10 +44,6 @@ user.xp = 0
 
 return user
 }
-
-/* =========================
-   🎰 CASINO
-========================= */
 
 function casino(user, bet) {
 
@@ -95,61 +60,45 @@ return `💀 perdeu -${bet}`
 }
 }
 
+function freddy(user, msg) {
+
+user.memory += " " + msg
+
+const replies = [
+"👁️ eu estou te observando...",
+"💀 Freddy nunca dorme...",
+"📺 câmeras detectaram você...",
+"🔪 algo está perto...",
+"🎭 você já esteve aqui..."
+]
+
+return replies[Math.floor(Math.random() * replies.length)]
+}
+
 /* =========================
-   💀 MENU VIVO 2.0
+   📺 MENU FUNCIONAL
 ========================= */
 
 async function sendMenu(sock, jid, user) {
 
-const hour = new Date().getHours()
+const menu = `
+💀 FNAF SYSTEM ONLINE
 
-let fase = "NOITE"
-if (hour < 12) fase = "MANHÃ"
-if (hour >= 12 && hour < 18) fase = "TARDE"
-if (hour >= 18) fase = "NOITE"
-
-const freddyLines = [
-"👁️ eu estou te observando...",
-"💀 o sistema está vivo...",
-"📺 movimento detectado...",
-"🔪 algo está aqui..."
-]
-
-const freddy = freddyLines[Math.floor(Math.random() * freddyLines.length)]
-
-const text = `
-💀 FNAF SYSTEM LIVE
-
-⏰ Fase: ${fase}
 💰 Dinheiro: ${user.money}
 ⭐ Level: ${user.level}
+📊 XP: ${user.xp}
 
 🎮 COMANDOS:
-!work
-!casino valor
-!shop
-!freddy msg
-!panel
 
-👁️ ${freddy}
+!work → ganhar dinheiro
+!casino 10 → apostar
+!freddy texto → IA
+!menu → abrir menu
+
+👁️ Freddy está observando...
 `
 
-/* BOTÕES (SE SUPORTAR) */
-try {
-await sock.sendMessage(jid, {
-text: "🎮 MENU VIVO",
-footer: "FNAF SYSTEM",
-buttons: [
-{ buttonId: '!work', buttonText: { displayText: '💰 WORK' }, type: 1 },
-{ buttonId: '!casino 10', buttonText: { displayText: '🎰 CASINO' }, type: 1 },
-{ buttonId: '!shop', buttonText: { displayText: '🛒 SHOP' }, type: 1 }
-]
-})
-return
-} catch (e) {}
-
-/* FALLBACK */
-await sock.sendMessage(jid, { text })
+await sock.sendMessage(jid, { text: menu })
 }
 
 /* =========================
@@ -165,7 +114,7 @@ const sock = makeWASocket({
 auth: state,
 version,
 printQRInTerminal: true,
-browser: ['FNAF FINAL', 'Chrome', '1.0']
+browser: ['FNAF FIXED BOT', 'Chrome', '1.0']
 })
 
 sock.ev.on('connection.update', ({ connection, qr, lastDisconnect }) => {
@@ -192,9 +141,9 @@ const body =
 m.message.conversation ||
 m.message.extendedTextMessage?.text ||
 ''
-).toLowerCase()
+).trim().toLowerCase()
 
-getUser(jid, async (user) => {
+const user = getUser(jid)
 
 /* =========================
    📺 MENU
@@ -210,10 +159,10 @@ return sendMenu(sock, jid, user)
 
 if (body === '!work') {
 work(user)
-saveUser(user)
+saveUser(jid, user)
 
 return sock.sendMessage(jid, {
-text: `💰 ganhou dinheiro\nTotal: ${user.money}`
+text: `💰 você ganhou dinheiro\nsaldo: ${user.money}`
 })
 }
 
@@ -222,23 +171,25 @@ text: `💰 ganhou dinheiro\nTotal: ${user.money}`
 ========================= */
 
 if (body.startsWith('!casino')) {
+
 const bet = parseInt(body.split(' ')[1]) || 10
 const result = casino(user, bet)
-saveUser(user)
+
+saveUser(jid, user)
 
 return sock.sendMessage(jid, { text: result })
 }
 
 /* =========================
-   👁️ FREDDY IA
+   👁️ FREDDY
 ========================= */
 
 if (body.startsWith('!freddy')) {
 
-const msg = body.replace('!freddy', '')
-const resp = freddyAI(user, msg)
+const msg = body.replace('!freddy', '').trim()
+const resp = freddy(user, msg)
 
-saveUser(user)
+saveUser(jid, user)
 
 return sock.sendMessage(jid, {
 text: resp
@@ -246,38 +197,14 @@ text: resp
 }
 
 /* =========================
-   🛒 SHOP
+   👁️ EVENTO ALEATÓRIO
 ========================= */
 
-if (body === '!shop') {
+if (Math.random() < 0.03) {
 return sock.sendMessage(jid, {
-text: `
-🛒 LOJA
-
-- energia
-- skin freddy
-- boost xp
-`
+text: "👁️ Freddy está te observando..."
 })
 }
-
-/* =========================
-   📊 PANEL
-========================= */
-
-if (body === '!panel') {
-return sock.sendMessage(jid, {
-text: `
-📊 SISTEMA
-
-👥 ativo
-💾 sqlite ok
-👁️ Freddy online
-`
-})
-}
-
-})
 
 })
 
