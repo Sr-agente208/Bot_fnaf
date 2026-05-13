@@ -117,20 +117,22 @@ sock.ev.on('creds.update', saveCreds)
    💬 MENSAGENS (CORRIGIDO)
 ========================= */
 
-sock.ev.on('messages.upsert', async ({ messages, type }) => {
+sock.ev.on('messages.upsert', async (data) => {
+console.log("🔥 EVENTO ATIVOU")
 
-try {
+const m = data.messages?.[0]
 
-if (type !== 'notify') return // 💀 IGNORA HISTORY / LIXO
+console.log("📦 RAW MESSAGE:", JSON.stringify(m, null, 2))
 
-const m = messages[0]
-if (!m.message || m.key.fromMe) return
+if (!m?.message) {
+console.log("❌ SEM MESSAGE REAL")
+return
+}
 
-// 💀 IGNORA TIPOS QUE NÃO SÃO CHAT
-if (m.message?.protocolMessage) return
-if (m.message?.historySyncNotification) return
+console.log("✅ TEM MESSAGE")
 
-const jid = m.key.remoteJid
+const jid = m.key?.remoteJid
+console.log("👤 JID:", jid)
 
 const body =
 (
@@ -140,11 +142,12 @@ m.message.imageMessage?.caption ||
 m.message.videoMessage?.caption ||
 m.message.buttonsResponseMessage?.selectedButtonId ||
 ''
-).trim().toLowerCase()
+)
 
-console.log("📩 MSG REAL:", body)
+console.log("📨 BODY FINAL:", body)
 
-const user = getUser(jid)
+await sock.sendMessage(jid, { text: "TESTE OK 💀 RECEBI SUA MENSAGEM" })
+})
 
 /* =========================
    📺 MENU
