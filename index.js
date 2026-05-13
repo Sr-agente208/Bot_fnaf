@@ -1,36 +1,64 @@
 const qrcode = require('qrcode-terminal')
+
 const {
 default: makeWASocket,
 useMultiFileAuthState,
-DisconnectReason
+DisconnectReason,
+fetchLatestBaileysVersion
 } = require('@whiskeysockets/baileys')
 
 async function startBot() {
 
 const { state, saveCreds } =
-await useMultiFileAuthState('auth')
+await useMultiFileAuthState('./auth')
+
+const { version } =
+await fetchLatestBaileysVersion()
 
 const sock = makeWASocket({
-auth: state
+auth: state,
+version,
+printQRInTerminal: false,
+browser: ['Bot FNAF', 'Chrome', '1.0.0']
 })
 
-sock.ev.on('connection.update' if (qr) 
-qrcode.generate(qr, { small: true })
-)}
+sock.ev.on('creds.update', saveCreds)
 
 sock.ev.on('connection.update', async ({
 connection,
 lastDisconnect,
 qr
-}) => 
+}) => {
 
 if (qr) {
+
 qrcode.generate(qr, { small: true })
+
 console.log('📱 Escaneie o QR Code')
 
-})
+}
 
-sock.ev.on('creds.update', saveCreds)
+if (connection === 'open') {
+
+console.log('🤖 BOT ONLINE')
+
+}
+
+if (connection === 'close') {
+
+const shouldReconnect =
+lastDisconnect?.error?.output?.statusCode !==
+DisconnectReason.loggedOut
+
+console.log('❌ Conexão fechada')
+
+if (shouldReconnect) {
+startBot()
+}
+
+}
+
+})
 
 sock.ev.on('messages.upsert', async ({ messages }) => {
 
@@ -48,7 +76,8 @@ if (body === '!fnaf') {
 const frases = [
 '👁️ Freddy está te observando...',
 '🦊 Foxy saiu da Pirate Cove!',
-'🔋 Sua energia está acabando...'
+'🔋 Sua energia está acabando...',
+'🎭 Os animatronics ficaram agressivos.'
 ]
 
 const imagens = [
