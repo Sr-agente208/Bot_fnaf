@@ -18,15 +18,10 @@ if (!users[jid]) {
 users[jid] = {
 money: 100,
 xp: 0,
-level: 1,
-memory: ""
+level: 1
 }
 }
 return users[jid]
-}
-
-function saveUser(jid, user) {
-users[jid] = user
 }
 
 /* =========================
@@ -46,59 +41,36 @@ return user
 }
 
 function casino(user, bet) {
-
 if (user.money < bet) return "❌ sem dinheiro"
 
 const win = Math.random() > 0.5
 
 if (win) {
 user.money += bet
-return `🎰 ganhou +${bet}`
+return `🎰 você ganhou +${bet}`
 } else {
 user.money -= bet
-return `💀 perdeu -${bet}`
+return `💀 você perdeu -${bet}`
 }
-}
-
-function freddy(user, msg) {
-
-user.memory += " " + msg
-
-const replies = [
-"👁️ eu estou te observando...",
-"💀 Freddy nunca dorme...",
-"📺 câmeras detectaram você...",
-"🔪 algo está perto...",
-"🎭 você já esteve aqui..."
-]
-
-return replies[Math.floor(Math.random() * replies.length)]
 }
 
 /* =========================
-   📺 MENU FUNCIONAL
+   📺 MENU
 ========================= */
 
-async function sendMenu(sock, jid, user) {
-
-const menu = `
-💀 FNAF SYSTEM ONLINE
+function getMenu(user) {
+return `
+💀 BOT ONLINE
 
 💰 Dinheiro: ${user.money}
 ⭐ Level: ${user.level}
 📊 XP: ${user.xp}
 
 🎮 COMANDOS:
-
-!work → ganhar dinheiro
-!casino 10 → apostar
-!freddy texto → IA
-!menu → abrir menu
-
-👁️ Freddy está observando...
+!menu
+!work
+!casino 10
 `
-
-await sock.sendMessage(jid, { text: menu })
 }
 
 /* =========================
@@ -114,8 +86,12 @@ const sock = makeWASocket({
 auth: state,
 version,
 printQRInTerminal: true,
-browser: ['FNAF FIXED BOT', 'Chrome', '1.0']
+browser: ['Stable Bot', 'Chrome', '1.0']
 })
+
+/* =========================
+   🔌 CONEXÃO
+========================= */
 
 sock.ev.on('connection.update', ({ connection, qr, lastDisconnect }) => {
 
@@ -125,14 +101,26 @@ if (connection === 'close') {
 const shouldReconnect =
 lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
 
+console.log("❌ conexão caiu, reconectando...")
+
 if (shouldReconnect) startBot()
 }
+
+if (connection === 'open') {
+console.log("🤖 BOT ONLINE")
+}
 })
+
+sock.ev.on('creds.update', saveCreds)
+
+/* =========================
+   💬 MENSAGENS
+========================= */
 
 sock.ev.on('messages.upsert', async ({ messages }) => {
 
 const m = messages[0]
-if (!m.message) return
+if (!m.message || m.key.fromMe) return
 
 const jid = m.key.remoteJid
 
@@ -150,7 +138,9 @@ const user = getUser(jid)
 ========================= */
 
 if (body === '!menu') {
-return sendMenu(sock, jid, user)
+return sock.sendMessage(jid, {
+text: getMenu(user)
+})
 }
 
 /* =========================
@@ -159,10 +149,9 @@ return sendMenu(sock, jid, user)
 
 if (body === '!work') {
 work(user)
-saveUser(jid, user)
 
 return sock.sendMessage(jid, {
-text: `💰 você ganhou dinheiro\nsaldo: ${user.money}`
+text: `💰 você trabalhou!\nsaldo: ${user.money}`
 })
 }
 
@@ -175,36 +164,16 @@ if (body.startsWith('!casino')) {
 const bet = parseInt(body.split(' ')[1]) || 10
 const result = casino(user, bet)
 
-saveUser(jid, user)
-
-return sock.sendMessage(jid, { text: result })
-}
-
-/* =========================
-   👁️ FREDDY
-========================= */
-
-if (body.startsWith('!freddy')) {
-
-const msg = body.replace('!freddy', '').trim()
-const resp = freddy(user, msg)
-
-saveUser(jid, user)
-
 return sock.sendMessage(jid, {
-text: resp
+text: result
 })
 }
 
 /* =========================
-   👁️ EVENTO ALEATÓRIO
+   👁️ DEBUG
 ========================= */
 
-if (Math.random() < 0.03) {
-return sock.sendMessage(jid, {
-text: "👁️ Freddy está te observando..."
-})
-}
+console.log("📩 MSG:", body)
 
 })
 
