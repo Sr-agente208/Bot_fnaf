@@ -69,37 +69,162 @@ if (!m.message) return
 const from = m.key.remoteJid
 
 const body =
-m.message.conversation || ''
+m.message.conversation ||
+m.message.extendedTextMessage?.text || ''
+
+// ===== MENU =====
+
+if (body === '!menu') {
+
+const menu = `
+╔═══『 🎮 BOT FNAF 』
+║
+║ 👁️ !fnaf
+║ 🦊 !foxy
+║ 🧸 !bonnie
+║ 🐤 !chica
+║ ☠️ !jumpscare
+║ 🔋 !energia
+║ 🌙 !night
+║ 🎵 !musica
+║ 👻 !golden
+║ 🔪 !springtrap
+║
+╚═══════════
+`
+
+await sock.sendMessage(from, {
+text: menu
+})
+
+}
+
+// ===== FNAF =====
 
 if (body === '!fnaf') {
 
 const frases = [
 '👁️ Freddy está te observando...',
-'🦊 Foxy saiu da Pirate Cove!',
-'🔋 Sua energia está acabando...',
-'🎭 Os animatronics ficaram agressivos.'
-]
-
-const imagens = [
-'https://i.imgur.com/WxNkK7J.jpeg',
-'https://i.imgur.com/6XQJv8x.jpeg'
+'🎭 Os animatronics ficaram agressivos.',
+'🕰️ 5 AM... sobreviva.',
+'📺 As câmeras falharam.',
+'🔋 Energia acabando...'
 ]
 
 const resultado =
 frases[Math.floor(Math.random() * frases.length)]
 
-const imagem =
-imagens[Math.floor(Math.random() * imagens.length)]
+await sock.sendMessage(from, {
+text: resultado
+})
+
+}
+
+// ===== FOXY =====
+
+if (body === '!foxy') {
 
 await sock.sendMessage(from, {
-image: { url: imagem },
-caption: resultado
+text: '🦊 FOXY CORREU PELO CORREDOR!'
+})
+
+}
+
+// ===== BONNIE =====
+
+if (body === '!bonnie') {
+
+await sock.sendMessage(from, {
+text: '🧸 Bonnie apareceu atrás de você.'
+})
+
+}
+
+// ===== CHICA =====
+
+if (body === '!chica') {
+
+await sock.sendMessage(from, {
+text: '🐤 Chica está na cozinha fazendo barulho.'
+})
+
+}
+
+// ===== JUMPSCARE =====
+
+if (body === '!jumpscare') {
+
+const sustos = [
+'☠️ BOO!',
+'👹 VOCÊ MORREU.',
+'🔪 Springtrap apareceu.',
+'📺 Tela perdida.',
+'🩸 Algo abriu a porta.'
+]
+
+const scare =
+sustos[Math.floor(Math.random() * sustos.length)]
+
+await sock.sendMessage(from, {
+text: scare
+})
+
+}
+
+// ===== ENERGIA =====
+
+if (body === '!energia') {
+
+const energia =
+Math.floor(Math.random() * 100)
+
+await sock.sendMessage(from, {
+text: `🔋 Energia restante: ${energia}%`
+})
+
+}
+
+// ===== NIGHT =====
+
+if (body === '!night') {
+
+const night =
+Math.floor(Math.random() * 6) + 1
+
+await sock.sendMessage(from, {
+text: `🌙 Você está na Night ${night}`
+})
+
+}
+
+// ===== MUSICA =====
+
+if (body === '!musica') {
+
+await sock.sendMessage(from, {
+text: '🎵 Har har har har har...'
+})
+
+}
+
+// ===== GOLDEN =====
+
+if (body === '!golden') {
+
+await sock.sendMessage(from, {
+text: '👻 Golden Freddy apareceu na sua sala.'
+})
+
+}
+
+// ===== SPRINGTRAP =====
+
+if (body === '!springtrap') {
+
+await sock.sendMessage(from, {
+text: '🔪 Springtrap entrou na ventilação.'
 })
 
 }
 
 })
-
-}
-
-startBot()
