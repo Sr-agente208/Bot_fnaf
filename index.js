@@ -8,7 +8,7 @@ fetchLatestBaileysVersion
 } = require('@whiskeysockets/baileys')
 
 /* =========================
-   🧠 USUÁRIOS (MEMÓRIA SIMPLES)
+   🧠 USUÁRIOS
 ========================= */
 
 const users = {}
@@ -25,7 +25,7 @@ return users[jid]
 }
 
 /* =========================
-   💰 FUNÇÕES
+   💰 SISTEMA
 ========================= */
 
 function work(user) {
@@ -47,10 +47,10 @@ const win = Math.random() > 0.5
 
 if (win) {
 user.money += bet
-return `🎰 você ganhou +${bet}`
+return `🎰 ganhou +${bet}`
 } else {
 user.money -= bet
-return `💀 você perdeu -${bet}`
+return `💀 perdeu -${bet}`
 }
 }
 
@@ -58,15 +58,15 @@ return `💀 você perdeu -${bet}`
    📺 MENU
 ========================= */
 
-function getMenu(user) {
+function menu(user) {
 return `
-💀 BOT ONLINE
+💀 BOT FUNCIONANDO
 
 💰 Dinheiro: ${user.money}
 ⭐ Level: ${user.level}
 📊 XP: ${user.xp}
 
-🎮 COMANDOS:
+COMANDOS:
 !menu
 !work
 !casino 10
@@ -86,7 +86,7 @@ const sock = makeWASocket({
 auth: state,
 version,
 printQRInTerminal: true,
-browser: ['Stable Bot', 'Chrome', '1.0']
+browser: ['FIX BOT', 'Chrome', '1.0']
 })
 
 /* =========================
@@ -114,13 +114,21 @@ console.log("🤖 BOT ONLINE")
 sock.ev.on('creds.update', saveCreds)
 
 /* =========================
-   💬 MENSAGENS
+   💬 MENSAGENS (CORRIGIDO)
 ========================= */
 
-sock.ev.on('messages.upsert', async ({ messages }) => {
+sock.ev.on('messages.upsert', async ({ messages, type }) => {
+
+try {
+
+if (type !== 'notify') return // 💀 IGNORA HISTORY / LIXO
 
 const m = messages[0]
 if (!m.message || m.key.fromMe) return
+
+// 💀 IGNORA TIPOS QUE NÃO SÃO CHAT
+if (m.message?.protocolMessage) return
+if (m.message?.historySyncNotification) return
 
 const jid = m.key.remoteJid
 
@@ -128,8 +136,13 @@ const body =
 (
 m.message.conversation ||
 m.message.extendedTextMessage?.text ||
+m.message.imageMessage?.caption ||
+m.message.videoMessage?.caption ||
+m.message.buttonsResponseMessage?.selectedButtonId ||
 ''
 ).trim().toLowerCase()
+
+console.log("📩 MSG REAL:", body)
 
 const user = getUser(jid)
 
@@ -138,9 +151,7 @@ const user = getUser(jid)
 ========================= */
 
 if (body === '!menu') {
-return sock.sendMessage(jid, {
-text: getMenu(user)
-})
+return sock.sendMessage(jid, { text: menu(user) })
 }
 
 /* =========================
@@ -151,7 +162,7 @@ if (body === '!work') {
 work(user)
 
 return sock.sendMessage(jid, {
-text: `💰 você trabalhou!\nsaldo: ${user.money}`
+text: `💰 ganhou dinheiro\nsaldo: ${user.money}`
 })
 }
 
@@ -164,16 +175,12 @@ if (body.startsWith('!casino')) {
 const bet = parseInt(body.split(' ')[1]) || 10
 const result = casino(user, bet)
 
-return sock.sendMessage(jid, {
-text: result
-})
+return sock.sendMessage(jid, { text: result })
 }
 
-/* =========================
-   👁️ DEBUG
-========================= */
-
-console.log("📩 MSG:", body)
+} catch (err) {
+console.log("❌ ERRO:", err)
+}
 
 })
 
