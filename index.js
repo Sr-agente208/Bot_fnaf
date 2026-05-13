@@ -85,13 +85,16 @@ if (body === '!menu') {
 
 await sock.sendMessage(from, {
 
-image: {
-url: 'https://i.imgur.com/WxNkK7J.jpeg'
+video: {
+url: 'https://media.tenor.com/IHdlTRsmcS4AAAAC/fnaf-jumpscare.gif'
 },
 
+gifPlayback: true,
+
 caption: `
-╔═══『 🎮 BOT FNAF 』
-║
+╔══════════════════╗
+║ 🎮 𝗕𝗢𝗧 𝗙𝗡𝗔𝗙 🎮
+╠══════════════════╣
 ║ 👁️ !fnaf
 ║ 🦊 !foxy
 ║ 🧸 !bonnie
@@ -106,8 +109,9 @@ caption: `
 ║ 💀 !glitch
 ║ 🎶 !play
 ║ 🐦 !twitter
-║
-╚═══════════
+╚══════════════════╝
+
+⚠️ Cuidado com os animatronics...
 `
 })
 
@@ -117,21 +121,36 @@ caption: `
 
 if (body === '!fnaf') {
 
-const frases = [
-'👁️ Freddy está te observando...',
-'🎭 Os animatronics ficaram agressivos.',
-'🕰️ 5 AM... sobreviva.',
-'📺 As câmeras falharam.',
-'🔋 Energia acabando...',
-'⚠️ Movimento detectado no CAM 2B.',
-'🌙 Você ouviu passos atrás de você.'
+const respostas = [
+
+{
+gif: 'https://media.tenor.com/6K0wS6Sx9sAAAAAC/fnaf.gif',
+texto: '👁️ Freddy está te observando...'
+},
+
+{
+gif: 'https://media.tenor.com/IHdlTRsmcS4AAAAC/fnaf-jumpscare.gif',
+texto: '🎭 Os animatronics ficaram agressivos.'
+},
+
+{
+gif: 'https://media.tenor.com/fD5p6Rk2W5AAAAAC/freddy-fazbear.gif',
+texto: '🕰️ 5 AM... sobreviva.'
+}
+
 ]
 
-const resultado =
-frases[Math.floor(Math.random() * frases.length)]
+const escolha =
+respostas[Math.floor(Math.random() * respostas.length)]
 
 await sock.sendMessage(from, {
-text: resultado
+
+video: { url: escolha.gif },
+
+gifPlayback: true,
+
+caption: escolha.texto
+
 })
 
 }
@@ -141,10 +160,18 @@ text: resultado
 if (body === '!foxy') {
 
 await sock.sendMessage(from, {
-image: {
-url: 'https://i.imgur.com/6XQJv8x.jpeg'
+
+video: {
+url: 'https://media.tenor.com/akG7iJx2jWAAAAAC/foxy-fnaf.gif'
 },
-caption: '🦊 FOXY CORREU PELO CORREDOR!'
+
+gifPlayback: true,
+
+caption: `
+🦊 FOXY SAIU DA PIRATE COVE!
+
+⚠️ Corra para a porta!
+`
 })
 
 }
@@ -154,7 +181,18 @@ caption: '🦊 FOXY CORREU PELO CORREDOR!'
 if (body === '!bonnie') {
 
 await sock.sendMessage(from, {
-text: '🧸 Bonnie apareceu atrás de você.'
+
+video: {
+url: 'https://media.tenor.com/vpN4bD5z0f8AAAAC/bonnie-fnaf.gif'
+},
+
+gifPlayback: true,
+
+caption: `
+🧸 BONNIE APARECEU.
+
+👁️ Ele está atrás de você.
+`
 })
 
 }
@@ -164,7 +202,18 @@ text: '🧸 Bonnie apareceu atrás de você.'
 if (body === '!chica') {
 
 await sock.sendMessage(from, {
-text: '🐤 Chica está na cozinha fazendo barulho.'
+
+video: {
+url: 'https://media.tenor.com/eTFEuQJwScMAAAAC/chica-fnaf.gif'
+},
+
+gifPlayback: true,
+
+caption: `
+🐤 CHICA ESTÁ NA COZINHA.
+
+🔪 Você ouviu panelas...
+`
 })
 
 }
@@ -201,9 +250,17 @@ const scare =
 jumpscares[Math.floor(Math.random() * jumpscares.length)]
 
 await sock.sendMessage(from, {
+
 video: { url: scare.gif },
+
 gifPlayback: true,
-caption: scare.texto
+
+caption: `
+${scare.texto}
+
+⚠️ VOCÊ MORREU
+`
+
 })
 
 }
@@ -216,7 +273,18 @@ const energia =
 Math.floor(Math.random() * 100)
 
 await sock.sendMessage(from, {
-text: `🔋 Energia restante: ${energia}%`
+
+video: {
+url: 'https://media.tenor.com/LQ1vlPj8cX0AAAAC/fnaf-power.gif'
+},
+
+gifPlayback: true,
+
+caption: `
+🔋 ENERGIA RESTANTE
+
+⚡ ${energia}%
+`
 })
 
 }
@@ -229,7 +297,18 @@ const night =
 Math.floor(Math.random() * 6) + 1
 
 await sock.sendMessage(from, {
-text: `🌙 Você está na Night ${night}`
+
+video: {
+url: 'https://media.tenor.com/7M5D4R8V6WAAAAAC/fnaf-night.gif'
+},
+
+gifPlayback: true,
+
+caption: `
+🌙 NIGHT ${night}
+
+👁️ Sobreviva até às 6AM.
+`
 })
 
 }
@@ -239,7 +318,16 @@ text: `🌙 Você está na Night ${night}`
 if (body === '!musica') {
 
 await sock.sendMessage(from, {
-text: '🎵 Har har har har har...'
+
+video: {
+url: 'https://media.tenor.com/zpF2l2K9jQkAAAAC/freddy-music.gif'
+},
+
+gifPlayback: true,
+
+caption: `
+🎵 Har har har har har...
+`
 })
 
 }
@@ -249,7 +337,18 @@ text: '🎵 Har har har har har...'
 if (body === '!golden') {
 
 await sock.sendMessage(from, {
-text: '👻 Golden Freddy apareceu na sua sala.'
+
+video: {
+url: 'https://media.tenor.com/T6dLJx9n8qUAAAAC/golden-freddy.gif'
+},
+
+gifPlayback: true,
+
+caption: `
+👻 GOLDEN FREDDY APARECEU
+
+📺 O sistema está falhando...
+`
 })
 
 }
@@ -259,7 +358,16 @@ text: '👻 Golden Freddy apareceu na sua sala.'
 if (body === '!springtrap') {
 
 await sock.sendMessage(from, {
-text: '🔪 Springtrap entrou na ventilação.'
+
+video: {
+url: 'https://media.tenor.com/cK9HcJ6p8x8AAAAC/springtrap-fnaf.gif'
+},
+
+gifPlayback: true,
+
+caption: `
+🔪 SPRINGTRAP ENTROU NA VENTILAÇÃO
+`
 })
 
 }
@@ -268,19 +376,29 @@ text: '🔪 Springtrap entrou na ventilação.'
 
 if (body === '!camera') {
 
-const cameras = [
+const cams = [
+
 '📺 CAM 1A: Palco principal.',
 '📺 CAM 2B: Movimento detectado.',
 '📺 CAM 4A: Corredor vazio.',
 '📺 CAM 5: Pirate Cove aberta.',
 '📺 CAM 6: Sinal perdido.'
+
 ]
 
 const cam =
-cameras[Math.floor(Math.random() * cameras.length)]
+cams[Math.floor(Math.random() * cams.length)]
 
 await sock.sendMessage(from, {
-text: cam
+
+video: {
+url: 'https://media.tenor.com/l1sK6xT4zDMAAAAC/security-camera.gif'
+},
+
+gifPlayback: true,
+
+caption: cam
+
 })
 
 }
@@ -290,7 +408,16 @@ text: cam
 if (body === '!glitch') {
 
 await sock.sendMessage(from, {
-text: '̷Y̷O̷U̷ ̷C̷A̷N̷\'̷T̷ ̷S̷A̷V̷E̷'
+
+video: {
+url: 'https://media.tenor.com/Gx9sF7j9y9QAAAAC/glitch.gif'
+},
+
+gifPlayback: true,
+
+caption: `
+̷Y̷O̷U̷ ̷C̷A̷N̷'̷T̷ ̷S̷A̷V̷E̷
+`
 })
 
 }
@@ -301,28 +428,18 @@ if (body.startsWith('!play ')) {
 
 const query = body.slice(6)
 
-if (!query) {
-
-return sock.sendMessage(from, {
-text: '🎶 Digite o nome da música.'
-})
-
-}
-
 await sock.sendMessage(from, {
-text: `🔎 Procurando: ${query}`
-})
 
-await sock.sendMessage(from, {
-image: {
-url: 'https://i.imgur.com/WxNkK7J.jpeg'
+video: {
+url: 'https://media.tenor.com/zpF2l2K9jQkAAAAC/freddy-music.gif'
 },
+
+gifPlayback: true,
+
 caption: `
-🎵 Música encontrada
+🎶 Procurando música...
 
-🔎 Pesquisa: ${query}
-
-⚠️ Sistema em desenvolvimento.
+🔎 ${query}
 `
 })
 
@@ -333,14 +450,6 @@ caption: `
 if (body.startsWith('!twitter ')) {
 
 const q = body.slice(9)
-
-if (!q) {
-
-return sock.sendMessage(from, {
-text: '❌ Envie um link do Twitter/X.'
-})
-
-}
 
 await sock.sendMessage(from, {
 text: '⏳ Baixando vídeo do Twitter...'
