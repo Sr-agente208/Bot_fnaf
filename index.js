@@ -1,7 +1,4 @@
 const qrcode = require('qrcode-terminal')
-const fs = require('fs')
-const path = require('path')
-const ytdl = require('ytdl-core')
 
 const {
 default: makeWASocket,
@@ -11,183 +8,114 @@ fetchLatestBaileysVersion
 } = require('@whiskeysockets/baileys')
 
 /* =========================
-   💰 USERS (MOEDAS + VIP)
+   👑 ADMINS
 ========================= */
 
-const users = {}
-
-function getUser(jid) {
-if (!users[jid]) {
-users[jid] = {
-money: 100,
-vip: false
-}
-}
-return users[jid]
-}
-
-/* =========================
-   📥 DOWNLOAD SYSTEM
-========================= */
-
-const queue = []
-const activeDownloads = {}
-
-function addQueue(job) {
-queue.push(job)
-
-// VIP PRIORITY SORT
-queue.sort((a, b) => (b.vip ? 1 : 0) - (a.vip ? 1 : 0))
-
-processQueue(job.sock)
-}
-
-async function processQueue(sock) {
-
-if (activeDownloads.running) return
-activeDownloads.running = true
-
-while (queue.length > 0) {
-
-const job = queue.shift()
-await runDownload(sock, job)
-
-}
-
-activeDownloads.running = false
-}
-
-/* =========================
-   👁️ FREDDY AI COMMENTS
-========================= */
-
-function freddySpeak() {
-const msgs = [
-"👁️ eu estou observando esse download...",
-"💀 a pizzaria nunca dorme...",
-"📺 câmeras detectaram atividade...",
-"🔪 algo está se aproximando...",
-"🎭 Freddy está curioso..."
+const ADMINS = [
+"seu_numero@s.whatsapp.net"
 ]
 
-return msgs[Math.floor(Math.random() * msgs.length)]
+function isAdmin(jid) {
+return ADMINS.includes(jid)
 }
 
 /* =========================
-   📊 PANEL
+   ⏰ MENU DINÂMICO POR HORÁRIO
 ========================= */
 
-function sendPanel(sock, jid) {
+function getTimeMenu() {
+const h = new Date().getHours()
 
-const running = Object.values(activeDownloads).length
+if (h >= 6 && h < 12) {
+return "🌅 MANHÃ DO HORROR"
+}
+if (h >= 12 && h < 18) {
+return "☀️ TARDE INSTÁVEL"
+}
+if (h >= 18 && h < 23) {
+return "🌙 NOITE FNAF ATIVA"
+}
+return "💀 MADRUGADA — ENTIDADES ATIVAS"
+}
 
-sock.sendMessage(jid, {
+/* =========================
+   🧠 SISTEMA DE PERMISSÃO
+========================= */
+
+function checkPerm(jid, sock) {
+return {
+admin: isAdmin(jid),
+user: true
+}
+}
+
+/* =========================
+   🎬 MENU ANIMADO (TERMINAL)
+========================= */
+
+async function animatedMenu(sock, jid) {
+
+const frames = [
+"💀 iniciando sistema...",
+"📡 conectando pizzaria...",
+"👁️ detectando animatronics...",
+"🔋 energia estabilizando...",
+"🎮 carregando menu..."
+]
+
+for (let i = 0; i < frames.length; i++) {
+
+await sock.sendMessage(jid, {
+text: frames[i]
+})
+
+await new Promise(r => setTimeout(r, 600))
+}
+
+/* MENU FINAL */
+
+await sock.sendMessage(jid, {
 text: `
-📊 DOWNLOAD PANEL
+💀 FNAF SYSTEM ONLINE
 
-📥 fila: ${queue.length}
-⚡ ativo: ${running}
+⏰ STATUS: ${getTimeMenu()}
 
-comandos:
-!cancel id
-!vip
-!panel
+🎮 COMANDOS:
+
+!start - jogo
+!cam - câmeras
+!door - porta
+!mp3 link - download
+!panel - painel
+!admin - painel secreto
 `
 })
 
 }
 
 /* =========================
-   🚫 CANCEL DOWNLOAD
+   🔐 PAINEL ADMIN SECRETO
 ========================= */
 
-function cancelDownload(id) {
-if (activeDownloads[id]) {
-activeDownloads[id].cancel = true
-return true
-}
-return false
-}
+async function adminPanel(sock, jid) {
 
-/* =========================
-   📥 DOWNLOAD ENGINE
-========================= */
-
-async function runDownload(sock, job) {
-
-const id = Date.now().toString()
-const user = getUser(job.jid)
-
-activeDownloads[id] = {
-cancel: false
-}
-
-try {
-
-await sock.sendMessage(job.jid, {
-text: `📥 iniciando download...\n🎭 ${freddySpeak()}`
-})
-
-const info = await ytdl.getInfo(job.url)
-const title = info.videoDetails.title.replace(/[^a-zA-Z0-9]/g, "_")
-
-const filePath = path.join(__dirname, `${title}.mp3`)
-
-const stream = ytdl(job.url, { filter: 'audioonly' })
-const write = fs.createWriteStream(filePath)
-
-let last = 0
-
-stream.on('progress', (_, d, t) => {
-
-if (activeDownloads[id].cancel) {
-stream.destroy()
-write.close()
-fs.unlinkSync(filePath)
-sock.sendMessage(job.jid, {
-text: "🚫 download cancelado"
-})
-return
-}
-
-const p = Math.floor((d / t) * 100)
-
-if (p - last >= 10) {
-last = p
-
-sock.sendMessage(job.jid, {
-text: `📥 baixando... ${p}%\n🎭 ${freddySpeak()}`
+if (!isAdmin(jid)) {
+return sock.sendMessage(jid, {
+text: "🚫 acesso negado"
 })
 }
 
+await sock.sendMessage(jid, {
+text: `
+👑 PAINEL ADMIN
+
+📊 sistema:
+!status
+!broadcast texto
+!addvip user
+!reset
+`
 })
-
-stream.pipe(write)
-
-write.on('finish', async () => {
-
-if (activeDownloads[id].cancel) return
-
-user.money += 10 // recompensa por download
-
-await sock.sendMessage(job.jid, {
-audio: fs.readFileSync(filePath),
-mimetype: 'audio/mp4'
-})
-
-fs.unlinkSync(filePath)
-
-sock.sendMessage(job.jid, {
-text: `✅ download finalizado\n💰 +10 moedas`
-})
-
-delete activeDownloads[id]
-})
-
-} catch (e) {
-console.log(e)
-sock.sendMessage(job.jid, { text: "❌ erro no download" })
-}
 
 }
 
@@ -204,7 +132,7 @@ const sock = makeWASocket({
 auth: state,
 version,
 printQRInTerminal: true,
-browser: ['FNAF SERVER', 'Chrome', '1.0']
+browser: ['FNAF LIVING MENU', 'Chrome', '1.0']
 })
 
 sock.ev.on('connection.update', ({ connection, qr, lastDisconnect }) => {
@@ -230,63 +158,63 @@ const body =
 (
 m.message.conversation ||
 m.message.extendedTextMessage?.text ||
+m.message.buttonsResponseMessage?.selectedButtonId ||
 ''
 ).trim().toLowerCase()
 
-const user = getUser(jid)
+const perm = checkPerm(jid, sock)
 
 /* =========================
-   📊 PANEL
+   📺 MENU VIVO
 ========================= */
 
-if (body === '!panel') return sendPanel(sock, jid)
-
-/* =========================
-   🎬 DOWNLOAD
-========================= */
-
-if (body.startsWith('!mp3 ')) {
-
-const url = body.replace('!mp3', '').trim()
-
-addQueue({
-jid,
-url,
-sock,
-vip: user.vip
-})
-
+if (body === '!menu') {
+return animatedMenu(sock, jid)
 }
 
 /* =========================
-   🚫 CANCEL
+   🔐 ADMIN PANEL
 ========================= */
 
-if (body.startsWith('!cancel')) {
-const ok = cancelDownload(body.split(' ')[1])
-sock.sendMessage(jid, {
-text: ok ? "🚫 cancelado" : "❌ não encontrado"
+if (body === '!admin') {
+return adminPanel(sock, jid)
+}
+
+/* =========================
+   🎮 COMANDOS BÁSICOS
+========================= */
+
+if (body === '!start') {
+return sock.sendMessage(jid, {
+text: "🎮 jogo iniciado..."
+})
+}
+
+if (body === '!cam') {
+return sock.sendMessage(jid, {
+text: "📺 câmeras online..."
+})
+}
+
+if (body === '!door') {
+return sock.sendMessage(jid, {
+text: "🚪 porta alternada..."
+})
+}
+
+if (body.startsWith('!mp3')) {
+return sock.sendMessage(jid, {
+text: "📥 download iniciado..."
 })
 }
 
 /* =========================
-   💰 VIP SYSTEM
+   👁️ SISTEMA VIVO (EVENTOS)
 ========================= */
 
-if (body === '!vip') {
-user.vip = true
+if (Math.random() < 0.03) {
 sock.sendMessage(jid, {
-text: "👑 você virou VIP (prioridade na fila)"
-})
-}
-
-/* =========================
-   📊 STATUS
-========================= */
-
-if (body === '!money') {
-sock.sendMessage(jid, {
-text: `💰 moedas: ${user.money}`
+text: "👁️ Freddy está te observando..."
 })
 }
 
