@@ -1,4 +1,6 @@
 const qrcode = require('qrcode-terminal')
+const axios = require('axios')
+
 const {
 default: makeWASocket,
 useMultiFileAuthState,
@@ -6,20 +8,25 @@ DisconnectReason,
 fetchLatestBaileysVersion
 } = require('@whiskeysockets/baileys')
 
-const fs = require('fs')
+/* =========================
+   🧠 ANTI CRASH (IMORTAL MODE)
+========================= */
+
+process.on('uncaughtException', (err) => {
+console.log('⚠️ ERRO IGNORADO:', err)
+})
+
+process.on('unhandledRejection', (err) => {
+console.log('⚠️ PROMISE ERROR:', err)
+})
 
 /* =========================
-   👁️ ASSETS HORROR
+   👁️ ASSETS
 ========================= */
 
 const gifs = [
 'https://media.tenor.com/T6dLJx9n8qUAAAAC/golden-freddy.gif',
-'https://media.tenor.com/6K0wS6Sx9sAAAAAC/fnaf.gif',
 'https://media.tenor.com/IHdlTRsmcS4AAAAC/fnaf-jumpscare.gif'
-]
-
-const horrorAudio = [
-'https://files.catbox.moe/9k8x1k.mp3' // troca se quiser
 ]
 
 const sleep = (ms) => new Promise(r => setTimeout(r, ms))
@@ -33,8 +40,8 @@ const game = {}
 function createPlayer(jid) {
 if (!game[jid]) {
 game[jid] = {
-night: 1,
 energy: 100,
+night: 1,
 door: false
 }
 }
@@ -42,71 +49,28 @@ return game[jid]
 }
 
 /* =========================
-   📺 CÂMERA FAKE
-========================= */
-
-async function fakeCamera(sock, jid) {
-await sock.sendMessage(jid, { text: "📺 Conectando câmeras..." })
-await sleep(700)
-
-await sock.sendMessage(jid, { text: "📡 SINAL INSTÁVEL..." })
-await sleep(700)
-
-await sock.sendMessage(jid, { text: "📺 CAM 1A: movimento detectado" })
-await sleep(700)
-
-await sock.sendMessage(jid, { text: "📺 CAM 2B: sombra passou..." })
-await sleep(700)
-
-await sock.sendMessage(jid, { text: "⚠️ SISTEMA FALHANDO..." })
-}
-
-/* =========================
-   🎮 MENU PRINCIPAL
+   🎮 MENU (SEGURO)
 ========================= */
 
 async function sendMenu(sock, jid) {
 
-await sock.sendPresenceUpdate('composing', jid)
-
+const s = createPlayer(jid)
 const gif = gifs[Math.floor(Math.random() * gifs.length)]
 
-await sock.sendMessage(jid, {
-image: { url: gif },
-caption: "👁️ conectando sistema..."
-})
-
-await sleep(1000)
-
-/* 🎵 áudio ambiente */
-await sock.sendMessage(jid, {
-audio: { url: horrorAudio[0] },
-mimetype: 'audio/mp4'
-})
-
-await sleep(800)
-
-/* 📺 câmera fake */
-await fakeCamera(sock, jid)
-
-await sleep(800)
-
-const s = createPlayer(jid)
+try {
 
 await sock.sendMessage(jid, {
 image: { url: gif },
 caption: `
-💀👁️ FNAF SYSTEM ACTIVE 👁️💀
+💀👁️ FNAF SYSTEM ONLINE 👁️💀
 
 🌙 Noite: ${s.night}
 🔋 Energia: ${s.energy}%
 
-"Ele nunca desliga..."
-
 Escolha:
 `,
-footer: "🏚 Freddy Fazbear System",
-buttonText: "ABRIR",
+footer: "Fazbear System",
+buttonText: "MENU",
 sections: [
 
 {
@@ -119,11 +83,10 @@ rows: [
 },
 
 {
-title: "📥 MEDIA",
+title: "📥 MEDIA (SAFE)",
 rows: [
 { title: "📺 YouTube", rowId: "!YT" },
-{ title: "🎬 TikTok", rowId: "!TIKTOK" },
-{ title: "🎵 Áudio", rowId: "!AUDIO" }
+{ title: "🎬 TikTok", rowId: "!TIKTOK" }
 ]
 },
 
@@ -137,10 +100,14 @@ rows: [
 
 ]
 })
+
+} catch (e) {
+console.log("MENU ERROR:", e)
+}
 }
 
 /* =========================
-   🎮 LOOP GAME
+   🎮 GAME LOOP (ESTÁVEL)
 ========================= */
 
 function startGame(sock, jid) {
@@ -150,33 +117,52 @@ if (s.loop) return
 
 s.loop = setInterval(() => {
 
-s.energy -= 6
+try {
 
-if (Math.random() < 0.3 && !s.door) {
-sock.sendMessage(jid, {
-text: "☠️ algo está no corredor..."
-})
-s.energy -= 20
+s.energy -= 5
+
+if (Math.random() < 0.25 && !s.door) {
+s.energy -= 15
+sock.sendMessage(jid, { text: "☠️ algo está no corredor..." })
 }
 
 if (s.door) s.energy -= 2
 
 if (Math.random() < 0.12) {
 sock.sendMessage(jid, { text: "⚡ BLACKOUT..." })
-s.energy -= 10
+s.energy -= 8
 }
 
 if (s.energy <= 0) {
 clearInterval(s.loop)
+s.loop = null
 sock.sendMessage(jid, { text: "💀 GAME OVER" })
 }
 
-if (Math.random() < 0.15) {
+if (Math.random() < 0.1) {
 s.night++
 sock.sendMessage(jid, { text: `🌙 6AM... noite ${s.night - 1}` })
 }
 
+} catch (e) {
+console.log("GAME ERROR:", e)
+}
+
 }, 12000)
+}
+
+/* =========================
+   📥 MEDIA SAFE (SEM DOWNLOAD REAL)
+========================= */
+
+async function fakeDownload(sock, jid, type) {
+try {
+await sock.sendMessage(jid, {
+text: `📥 processando ${type}...\n⚠️ modo seguro ativo`
+})
+} catch (e) {
+console.log("MEDIA ERROR:", e)
+}
 }
 
 /* =========================
@@ -192,14 +178,15 @@ const sock = makeWASocket({
 auth: state,
 version,
 printQRInTerminal: true,
-browser: ['FNAF HORROR', 'Chrome', '1.0']
+browser: ['FNAF IMORTAL', 'Chrome', '1.0']
 })
 
 sock.ev.on('connection.update', ({ connection, qr, lastDisconnect }) => {
+
 if (qr) qrcode.generate(qr, { small: true })
 
 if (connection === 'open') {
-console.log("💀 BOT ONLINE")
+console.log("💀 BOT ONLINE IMORTAL")
 }
 
 if (connection === 'close') {
@@ -213,6 +200,8 @@ if (shouldReconnect) startBot()
 sock.ev.on('creds.update', saveCreds)
 
 sock.ev.on('messages.upsert', async ({ messages }) => {
+
+try {
 
 const m = messages[0]
 if (!m.message) return
@@ -240,7 +229,9 @@ if (body === '!MENU') return sendMenu(sock, jid)
 
 if (body === 'START') return startGame(sock, jid)
 
-if (body === 'CAM') return fakeCamera(sock, jid)
+if (body === 'CAM') {
+return sock.sendMessage(jid, { text: "📺 câmeras instáveis..." })
+}
 
 if (body === 'DOOR') {
 s.door = !s.door
@@ -250,19 +241,27 @@ text: s.door ? "🚪 FECHADO" : "🚪 ABERTO"
 }
 
 /* =========================
-   👁️ MEDIA PLACEHOLDER
+   📥 MEDIA SAFE
 ========================= */
 
 if (body.startsWith('!YT')) {
-return sock.sendMessage(jid, { text: "📺 YouTube (integração aqui)" })
+return fakeDownload(sock, jid, "YouTube")
 }
 
 if (body.startsWith('!TIKTOK')) {
-return sock.sendMessage(jid, { text: "🎬 TikTok (integração aqui)" })
+return fakeDownload(sock, jid, "TikTok")
 }
 
-if (body.startsWith('!AUDIO')) {
-return sock.sendMessage(jid, { text: "🎵 Áudio (integração aqui)" })
+if (body.startsWith('!FOXY')) {
+return sock.sendMessage(jid, { text: "🦊 Foxy correu pelo corredor..." })
+}
+
+if (body.startsWith('!JUMP')) {
+return sock.sendMessage(jid, { text: "☠️ BOO!" })
+}
+
+} catch (e) {
+console.log("GLOBAL ERROR:", e)
 }
 
 })
