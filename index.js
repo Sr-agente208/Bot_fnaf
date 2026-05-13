@@ -1,6 +1,7 @@
 const qrcode = require('qrcode-terminal')
-const sqlite3 = require('sqlite3').verbose()
-const axios = require('axios')
+const fs = require('fs')
+const path = require('path')
+const ytdl = require('ytdl-core')
 
 const {
 default: makeWASocket,
@@ -10,155 +11,183 @@ fetchLatestBaileysVersion
 } = require('@whiskeysockets/baileys')
 
 /* =========================
-   🧠 SQLITE DATABASE
+   💰 USERS (MOEDAS + VIP)
 ========================= */
 
-const db = new sqlite3.Database('./fnaf.db')
+const users = {}
 
-db.run(`
-CREATE TABLE IF NOT EXISTS users (
-jid TEXT PRIMARY KEY,
-money INTEGER DEFAULT 0,
-xp INTEGER DEFAULT 0,
-level INTEGER DEFAULT 1,
-skin TEXT DEFAULT 'default'
-)
-`)
-
-function getUser(jid, cb) {
-db.get("SELECT * FROM users WHERE jid=?", [jid], (err, row) => {
-if (!row) {
-db.run("INSERT INTO users (jid) VALUES (?)", [jid])
-return cb({ jid, money: 0, xp: 0, level: 1, skin: "default" })
+function getUser(jid) {
+if (!users[jid]) {
+users[jid] = {
+money: 100,
+vip: false
 }
-cb(row)
-})
 }
-
-function updateUser(jid, data) {
-db.run(`
-UPDATE users
-SET money=?, xp=?, level=?, skin=?
-WHERE jid=?
-`, [data.money, data.xp, data.level, data.skin, jid])
+return users[jid]
 }
 
 /* =========================
-   💰 ECONOMIA
+   📥 DOWNLOAD SYSTEM
 ========================= */
 
-function addMoney(user, amt) {
-user.money += amt
-user.xp += amt
+const queue = []
+const activeDownloads = {}
 
-if (user.xp >= user.level * 100) {
-user.xp = 0
-user.level++
+function addQueue(job) {
+queue.push(job)
+
+// VIP PRIORITY SORT
+queue.sort((a, b) => (b.vip ? 1 : 0) - (a.vip ? 1 : 0))
+
+processQueue(job.sock)
 }
 
-return user
+async function processQueue(sock) {
+
+if (activeDownloads.running) return
+activeDownloads.running = true
+
+while (queue.length > 0) {
+
+const job = queue.shift()
+await runDownload(sock, job)
+
+}
+
+activeDownloads.running = false
 }
 
 /* =========================
-   🏆 MEDALHAS / SKINS
+   👁️ FREDDY AI COMMENTS
 ========================= */
 
-function getRankEmoji(level) {
-if (level >= 20) return "👑"
-if (level >= 10) return "💀"
-if (level >= 5) return "🔥"
-return "👶"
-}
-
-/* =========================
-   👁️ FREDDY AI SIMPLES
-========================= */
-
-async function freddyAI(text) {
-const replies = [
-"👁️ eu estou observando você...",
+function freddySpeak() {
+const msgs = [
+"👁️ eu estou observando esse download...",
 "💀 a pizzaria nunca dorme...",
-"🔪 você não deveria ter falado isso...",
-"🎭 estou atrás de você...",
-"📺 as câmeras não mentem..."
+"📺 câmeras detectaram atividade...",
+"🔪 algo está se aproximando...",
+"🎭 Freddy está curioso..."
 ]
 
-if (text.includes("oi")) return "👁️ olá... você está seguro?"
-return replies[Math.floor(Math.random() * replies.length)]
+return msgs[Math.floor(Math.random() * msgs.length)]
 }
 
 /* =========================
-   📺 MENU (FALLBACK SEGURO)
+   📊 PANEL
 ========================= */
 
-async function sendMenu(sock, jid) {
+function sendPanel(sock, jid) {
 
-getUser(jid, async (u) => {
+const running = Object.values(activeDownloads).length
+
+sock.sendMessage(jid, {
+text: `
+📊 DOWNLOAD PANEL
+
+📥 fila: ${queue.length}
+⚡ ativo: ${running}
+
+comandos:
+!cancel id
+!vip
+!panel
+`
+})
+
+}
+
+/* =========================
+   🚫 CANCEL DOWNLOAD
+========================= */
+
+function cancelDownload(id) {
+if (activeDownloads[id]) {
+activeDownloads[id].cancel = true
+return true
+}
+return false
+}
+
+/* =========================
+   📥 DOWNLOAD ENGINE
+========================= */
+
+async function runDownload(sock, job) {
+
+const id = Date.now().toString()
+const user = getUser(job.jid)
+
+activeDownloads[id] = {
+cancel: false
+}
 
 try {
 
-await sock.sendMessage(jid, {
-text: `
-💀 FNAF SYSTEM
+await sock.sendMessage(job.jid, {
+text: `📥 iniciando download...\n🎭 ${freddySpeak()}`
+})
 
-💰 Dinheiro: $${u.money}
-⭐ Level: ${u.level} ${getRankEmoji(u.level)}
-🎭 Skin: ${u.skin}
+const info = await ytdl.getInfo(job.url)
+const title = info.videoDetails.title.replace(/[^a-zA-Z0-9]/g, "_")
 
-MENU:
-1 - Trabalhar
-2 - Loja
-3 - Rank
-4 - Freddy AI
-`
+const filePath = path.join(__dirname, `${title}.mp3`)
+
+const stream = ytdl(job.url, { filter: 'audioonly' })
+const write = fs.createWriteStream(filePath)
+
+let last = 0
+
+stream.on('progress', (_, d, t) => {
+
+if (activeDownloads[id].cancel) {
+stream.destroy()
+write.close()
+fs.unlinkSync(filePath)
+sock.sendMessage(job.jid, {
+text: "🚫 download cancelado"
+})
+return
+}
+
+const p = Math.floor((d / t) * 100)
+
+if (p - last >= 10) {
+last = p
+
+sock.sendMessage(job.jid, {
+text: `📥 baixando... ${p}%\n🎭 ${freddySpeak()}`
+})
+}
+
+})
+
+stream.pipe(write)
+
+write.on('finish', async () => {
+
+if (activeDownloads[id].cancel) return
+
+user.money += 10 // recompensa por download
+
+await sock.sendMessage(job.jid, {
+audio: fs.readFileSync(filePath),
+mimetype: 'audio/mp4'
+})
+
+fs.unlinkSync(filePath)
+
+sock.sendMessage(job.jid, {
+text: `✅ download finalizado\n💰 +10 moedas`
+})
+
+delete activeDownloads[id]
 })
 
 } catch (e) {
-
-// fallback (nunca morre)
-await sock.sendMessage(jid, {
-text: "💀 MENU OFFLINE\n\n1 START\n2 LOJA\n3 RANK"
-})
+console.log(e)
+sock.sendMessage(job.jid, { text: "❌ erro no download" })
 }
-
-})
-}
-
-/* =========================
-   🛒 LOJA
-========================= */
-
-function shop(sock, jid) {
-sock.sendMessage(jid, {
-text: `
-🛒 LOJA FNAF
-
-skins:
-- freddy (100$)
-- foxy (200$)
-- golden (500$)
-
-use: !buy skin
-`
-})
-}
-
-/* =========================
-   🏆 RANK GLOBAL
-========================= */
-
-function rank(sock, jid) {
-
-db.all("SELECT * FROM users ORDER BY level DESC LIMIT 5", (err, rows) => {
-
-let txt = "🏆 RANK GLOBAL\n\n"
-
-rows.forEach((r, i) => {
-txt += `#${i+1} @${r.jid.split('@')[0]} | LVL ${r.level} ${getRankEmoji(r.level)}\n`
-})
-
-sock.sendMessage(jid, { text: txt })
-})
 
 }
 
@@ -179,6 +208,7 @@ browser: ['FNAF SERVER', 'Chrome', '1.0']
 })
 
 sock.ev.on('connection.update', ({ connection, qr, lastDisconnect }) => {
+
 if (qr) qrcode.generate(qr, { small: true })
 
 if (connection === 'close') {
@@ -203,58 +233,60 @@ m.message.extendedTextMessage?.text ||
 ''
 ).trim().toLowerCase()
 
-/* =========================
-   📺 MENU
-========================= */
-
-if (body === '!menu') return sendMenu(sock, jid)
+const user = getUser(jid)
 
 /* =========================
-   💰 TRABALHAR
+   📊 PANEL
 ========================= */
 
-if (body === '1') {
+if (body === '!panel') return sendPanel(sock, jid)
 
-getUser(jid, (u) => {
-addMoney(u, 50)
-updateUser(jid, u)
+/* =========================
+   🎬 DOWNLOAD
+========================= */
 
-sock.sendMessage(jid, {
-text: `💰 você trabalhou e ganhou $50\nTotal: $${u.money}`
-})
+if (body.startsWith('!mp3 ')) {
+
+const url = body.replace('!mp3', '').trim()
+
+addQueue({
+jid,
+url,
+sock,
+vip: user.vip
 })
 
 }
 
 /* =========================
-   🛒 LOJA
+   🚫 CANCEL
 ========================= */
 
-if (body === '2') return shop(sock, jid)
-
-/* =========================
-   🏆 RANK
-========================= */
-
-if (body === '3') return rank(sock, jid)
-
-/* =========================
-   👁️ FREDDY AI
-========================= */
-
-if (body === '4') {
-const resp = await freddyAI(body)
-
-sock.sendMessage(jid, { text: resp })
+if (body.startsWith('!cancel')) {
+const ok = cancelDownload(body.split(' ')[1])
+sock.sendMessage(jid, {
+text: ok ? "🚫 cancelado" : "❌ não encontrado"
+})
 }
 
 /* =========================
-   🤖 IA AUTOMÁTICA (chance)
+   💰 VIP SYSTEM
 ========================= */
 
-if (Math.random() < 0.03) {
+if (body === '!vip') {
+user.vip = true
 sock.sendMessage(jid, {
-text: await freddyAI("auto")
+text: "👑 você virou VIP (prioridade na fila)"
+})
+}
+
+/* =========================
+   📊 STATUS
+========================= */
+
+if (body === '!money') {
+sock.sendMessage(jid, {
+text: `💰 moedas: ${user.money}`
 })
 }
 
