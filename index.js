@@ -127,7 +127,7 @@ function menu(user) {
 
 return `
 ╔════════════════════╗
-     💀 FNAF BOT 💀
+      💀 FNAF BOT 💀
 ╚════════════════════╝
 
 👤 LEVEL: ${user.level}
@@ -167,6 +167,8 @@ Bot Online ✅
    START BOT
 ========================= */
 
+let sock
+
 async function startBot() {
 
 const { state, saveCreds } =
@@ -175,10 +177,12 @@ await useMultiFileAuthState('./auth')
 const { version } =
 await fetchLatestBaileysVersion()
 
-const sock = makeWASocket({
+sock = makeWASocket({
 
 auth: state,
 version,
+
+printQRInTerminal: false,
 
 browser: [
 'FNAF BOT',
@@ -221,17 +225,21 @@ lastDisconnect?.error?.output?.statusCode
 
 console.log('❌ DESCONECTOU:', code)
 
-if (code !== DisconnectReason.loggedOut) {
+if (
+code === DisconnectReason.loggedOut
+) {
 
-console.log('🔄 RECONECTANDO...')
+console.log('⚠️ sessão desconectada')
+return
+}
+
+console.log('🔄 RECONECTANDO EM 5s...')
 
 setTimeout(() => {
 startBot()
 }, 5000)
 
 }
-}
-
 }
 )
 
@@ -253,7 +261,6 @@ try {
 const m = messages?.[0]
 
 if (!m?.message) return
-
 if (m.key.fromMe) return
 
 const jid = m.key.remoteJid
@@ -362,7 +369,10 @@ if (text === '!bank') {
 
 return await sock.sendMessage(jid, {
 text:
-`🏦 BANCO\n\n💰 Carteira: ${user.money}\n🏦 Banco: ${user.bank}`
+`🏦 BANCO
+
+💰 Carteira: ${user.money}
+🏦 Banco: ${user.bank}`
 })
 }
 
