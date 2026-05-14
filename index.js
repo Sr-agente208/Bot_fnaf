@@ -1,5 +1,3 @@
-const readline = require('readline')
-
 const {
 default: makeWASocket,
 useMultiFileAuthState,
@@ -7,24 +5,16 @@ DisconnectReason,
 fetchLatestBaileysVersion
 } = require('@whiskeysockets/baileys')
 
-/* =========================
-   TERMINAL
-========================= */
+const readline = require('readline')
 
 const rl = readline.createInterface({
 input: process.stdin,
 output: process.stdout
 })
 
-function question(text) {
-return new Promise(resolve => rl.question(text, resolve))
-}
-
-/* =========================
-   USERS
-========================= */
-
 const users = {}
+
+/* ================= USERS ================= */
 
 function getUser(jid) {
 
@@ -42,52 +32,48 @@ bank: 0
 return users[jid]
 }
 
-/* =========================
-   XP
-========================= */
+/* ================= XP ================= */
 
 function addXP(user, amount) {
 
 user.xp += amount
 
 if (user.xp >= user.level * 100) {
+
 user.level++
 user.xp = 0
+
 return true
 }
 
 return false
 }
 
-/* =========================
-   WORK
-========================= */
+/* ================= WORK ================= */
 
 function work(user) {
 
-const gain = Math.floor(Math.random() * 50) + 20
+const amount = Math.floor(Math.random() * 50) + 20
 
-user.money += gain
+user.money += amount
 
 const levelUp = addXP(user, 15)
 
 return {
-gain,
+amount,
 levelUp
 }
 }
 
-/* =========================
-   CASINO
-========================= */
+/* ================= CASINO ================= */
 
 function casino(user, bet) {
 
-if (isNaN(bet)) return '❌ aposta inválida'
+if (isNaN(bet) || bet <= 0) {
+return '❌ aposta inválida'
+}
 
-if (bet <= 0) return '❌ aposta inválida'
-
-if (user.money < bet) {
+if (bet > user.money) {
 return '❌ dinheiro insuficiente'
 }
 
@@ -97,70 +83,48 @@ if (win) {
 
 user.money += bet
 
-addXP(user, 10)
-
-return `🎰 você ganhou +${bet} moedas`
+return `🎰 você ganhou ${bet} moedas`
 
 } else {
 
 user.money -= bet
 
-return `💀 você perdeu -${bet} moedas`
+return `💀 você perdeu ${bet} moedas`
 }
 }
 
-/* =========================
-   MENU
-========================= */
+/* ================= MENU ================= */
 
 function menu(user) {
 
 return `
-╔══════════════════╗
-     💀 FNAF BOT 💀
-╚══════════════════╝
+╔══════════════╗
+   💀 FNAF BOT 💀
+╚══════════════╝
 
 👤 LEVEL: ${user.level}
 💰 MONEY: ${user.money}
-🏦 BANK: ${user.bank}
 📊 XP: ${user.xp}/${user.level * 100}
 
 🎮 ECONOMIA
 !work
 !casino 50
-!bank
-!deposit 50
-!withdraw 50
+!perfil
 
 📱 UTILIDADES
 !menu
-!profile
 !ping
 
 🎲 DIVERSÃO
 !dado
 !coinflip
 
-⚡ STATUS
-Bot Online ✅
+🤖 STATUS
+ONLINE ✅
 `
 }
 
-function profile(user) {
-
-return `
-👤 PERFIL
-
-💰 Carteira: ${user.money}
-🏦 Banco: ${user.bank}
-⭐ Level: ${user.level}
-📊 XP: ${user.xp}/${user.level * 100}
-`
-}
-
-/* =========================
-   BOT
-========================= */
+/* ================= BOT ================= */
 
 async function startBot() {
 
@@ -176,9 +140,7 @@ version,
 browser: ['FNAF BOT', 'Chrome', '1.0']
 })
 
-/* =========================
-   CONEXÃO
-========================= */
+/* ================= CONNECTION ================= */
 
 sock.ev.on(
 'connection.update',
@@ -187,9 +149,7 @@ async ({ connection, lastDisconnect }) => {
 if (connection === 'open') {
 
 console.clear()
-
 console.log('🤖 BOT ONLINE')
-console.log('✅ conectado no WhatsApp')
 }
 
 if (connection === 'close') {
@@ -197,58 +157,52 @@ if (connection === 'close') {
 const code =
 lastDisconnect?.error?.output?.statusCode
 
-console.log('❌ conexão fechada:', code)
+console.log('❌ DESCONECTOU:', code)
 
 if (code !== DisconnectReason.loggedOut) {
 
-console.log('🔄 reconectando...')
-
-setTimeout(() => {
+console.log('🔄 RECONECTANDO...')
 startBot()
-}, 5000)
+}
+}
+
+/* ================= PAIRING CODE ================= */
+
+if (!sock.authState.creds.registered) {
+
+rl.question(
+'📱 DIGITE SEU NÚMERO COM DDI:\n',
+async (numero) => {
+
+try {
+
+const code =
+await sock.requestPairingCode(numero)
+
+console.log(`
+╔════════════════╗
+   📲 CÓDIGO:
+   ${code}
+╚════════════════╝
+`)
+
+} catch (err) {
+
+console.log('❌ ERRO AO GERAR CÓDIGO')
+console.log(err)
+}
 
 }
+)
+
 }
+
 }
 )
 
 sock.ev.on('creds.update', saveCreds)
 
-/* =========================
-   PAIRING CODE
-========================= */
-
-if (!sock.authState.creds.registered) {
-
-const number =
-await question('\n📱 DIGITE SEU NÚMERO COM DDI:\n')
-
-setTimeout(async () => {
-
-try {
-
-const code =
-await sock.requestPairingCode(number)
-
-console.log('\n🔐 CÓDIGO:\n')
-
-console.log(code)
-
-console.log('\n📲 coloque esse código no WhatsApp\n')
-
-} catch (err) {
-
-console.log('❌ erro ao gerar código')
-console.log(err)
-
-}
-
-}, 5000)
-}
-
-/* =========================
-   MENSAGENS
-========================= */
+/* ================= MESSAGES ================= */
 
 sock.ev.on(
 'messages.upsert',
@@ -258,7 +212,7 @@ try {
 
 const m = messages[0]
 
-if (!m?.message) return
+if (!m.message) return
 if (m.key.fromMe) return
 
 const jid = m.key.remoteJid
@@ -282,25 +236,10 @@ const user = getUser(jid)
 
 /* ================= MENU ================= */
 
-if (
-text === '!menu' ||
-text === 'menu'
-) {
+if (text === '!menu') {
 
 return await sock.sendMessage(jid, {
 text: menu(user)
-})
-}
-
-/* ================= PROFILE ================= */
-
-if (
-text === '!profile' ||
-text === '!perfil'
-) {
-
-return await sock.sendMessage(jid, {
-text: profile(user)
 })
 }
 
@@ -313,21 +252,33 @@ text: '🏓 pong'
 })
 }
 
+/* ================= PERFIL ================= */
+
+if (text === '!perfil') {
+
+return await sock.sendMessage(jid, {
+text: `
+👤 PERFIL
+
+💰 MONEY: ${user.money}
+⭐ LEVEL: ${user.level}
+📊 XP: ${user.xp}
+`
+})
+}
+
 /* ================= WORK ================= */
 
 if (text === '!work') {
 
 const result = work(user)
 
-let txt =
-`💰 você ganhou ${result.gain} moedas`
-
-if (result.levelUp) {
-txt += '\n⭐ LEVEL UP!'
-}
-
 return await sock.sendMessage(jid, {
-text: txt
+text: `
+💰 você trabalhou
+
++${result.amount} moedas
+`
 })
 }
 
@@ -346,70 +297,6 @@ text: result
 })
 }
 
-/* ================= BANK ================= */
-
-if (text === '!bank') {
-
-return await sock.sendMessage(jid, {
-text:
-`🏦 BANCO\n\n💰 carteira: ${user.money}\n🏦 banco: ${user.bank}`
-})
-}
-
-/* ================= DEPOSIT ================= */
-
-if (text.startsWith('!deposit')) {
-
-const amount =
-parseInt(text.split(' ')[1])
-
-if (isNaN(amount)) {
-return sock.sendMessage(jid, {
-text: '❌ valor inválido'
-})
-}
-
-if (amount > user.money) {
-return sock.sendMessage(jid, {
-text: '❌ dinheiro insuficiente'
-})
-}
-
-user.money -= amount
-user.bank += amount
-
-return sock.sendMessage(jid, {
-text: `🏦 depositou ${amount}`
-})
-}
-
-/* ================= WITHDRAW ================= */
-
-if (text.startsWith('!withdraw')) {
-
-const amount =
-parseInt(text.split(' ')[1])
-
-if (isNaN(amount)) {
-return sock.sendMessage(jid, {
-text: '❌ valor inválido'
-})
-}
-
-if (amount > user.bank) {
-return sock.sendMessage(jid, {
-text: '❌ banco insuficiente'
-})
-}
-
-user.bank -= amount
-user.money += amount
-
-return sock.sendMessage(jid, {
-text: `💰 sacou ${amount}`
-})
-}
-
 /* ================= DADO ================= */
 
 if (text === '!dado') {
@@ -417,7 +304,7 @@ if (text === '!dado') {
 const dice =
 Math.floor(Math.random() * 6) + 1
 
-return sock.sendMessage(jid, {
+return await sock.sendMessage(jid, {
 text: `🎲 dado: ${dice}`
 })
 }
@@ -431,19 +318,20 @@ Math.random() > 0.5
 ? 'cara'
 : 'coroa'
 
-return sock.sendMessage(jid, {
+return await sock.sendMessage(jid, {
 text: `🪙 ${flip}`
 })
 }
 
 } catch (err) {
 
-console.log('❌ erro:')
+console.log('❌ ERRO:')
 console.log(err)
-
 }
 
-})
+}
+)
+
 }
 
 startBot()
