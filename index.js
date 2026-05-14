@@ -1,4 +1,4 @@
-const qrcode = require('qrcode-terminal')
+const readline = require('readline')
 
 const {
 default: makeWASocket,
@@ -8,45 +8,104 @@ fetchLatestBaileysVersion
 } = require('@whiskeysockets/baileys')
 
 /* =========================
+   TERMINAL
+========================= */
+
+const rl = readline.createInterface({
+input: process.stdin,
+output: process.stdout
+})
+
+function question(text) {
+return new Promise(resolve => rl.question(text, resolve))
+}
+
+/* =========================
    USERS
 ========================= */
 
 const users = {}
 
 function getUser(jid) {
+
 if (!users[jid]) {
-users[jid] = { money: 100, xp: 0, level: 1 }
+
+users[jid] = {
+money: 100,
+xp: 0,
+level: 1,
+bank: 0
 }
+
+}
+
 return users[jid]
 }
 
 /* =========================
-   SYSTEM
+   XP
 ========================= */
 
-function work(u) {
-u.money += 20
-u.xp += 10
+function addXP(user, amount) {
 
-if (u.xp >= u.level * 100) {
-u.level++
-u.xp = 0
+user.xp += amount
+
+if (user.xp >= user.level * 100) {
+user.level++
+user.xp = 0
+return true
 }
 
-return u
+return false
 }
 
-function casino(u, bet) {
-if (u.money < bet) return "❌ sem dinheiro"
+/* =========================
+   WORK
+========================= */
+
+function work(user) {
+
+const gain = Math.floor(Math.random() * 50) + 20
+
+user.money += gain
+
+const levelUp = addXP(user, 15)
+
+return {
+gain,
+levelUp
+}
+}
+
+/* =========================
+   CASINO
+========================= */
+
+function casino(user, bet) {
+
+if (isNaN(bet)) return '❌ aposta inválida'
+
+if (bet <= 0) return '❌ aposta inválida'
+
+if (user.money < bet) {
+return '❌ dinheiro insuficiente'
+}
 
 const win = Math.random() > 0.5
 
 if (win) {
-u.money += bet
-return `🎰 ganhou +${bet}`
+
+user.money += bet
+
+addXP(user, 10)
+
+return `🎰 você ganhou +${bet} moedas`
+
 } else {
-u.money -= bet
-return `💀 perdeu -${bet}`
+
+user.money -= bet
+
+return `💀 você perdeu -${bet} moedas`
 }
 }
 
@@ -54,18 +113,48 @@ return `💀 perdeu -${bet}`
    MENU
 ========================= */
 
-function menu(u) {
+function menu(user) {
+
 return `
-💀 BOT ONLINE
+╔══════════════════╗
+     💀 FNAF BOT 💀
+╚══════════════════╝
 
-💰 Dinheiro: ${u.money}
-⭐ Level: ${u.level}
-📊 XP: ${u.xp}
+👤 LEVEL: ${user.level}
+💰 MONEY: ${user.money}
+🏦 BANK: ${user.bank}
+📊 XP: ${user.xp}/${user.level * 100}
 
-COMANDOS:
-!menu
+🎮 ECONOMIA
 !work
-!casino 10
+!casino 50
+!bank
+!deposit 50
+!withdraw 50
+
+📱 UTILIDADES
+!menu
+!profile
+!ping
+
+🎲 DIVERSÃO
+!dado
+!coinflip
+
+⚡ STATUS
+Bot Online ✅
+`
+}
+
+function profile(user) {
+
+return `
+👤 PERFIL
+
+💰 Carteira: ${user.money}
+🏦 Banco: ${user.bank}
+⭐ Level: ${user.level}
+📊 XP: ${user.xp}/${user.level * 100}
 `
 }
 
@@ -75,54 +164,105 @@ COMANDOS:
 
 async function startBot() {
 
-const { state, saveCreds } = await useMultiFileAuthState('./auth')
-const { version } = await fetchLatestBaileysVersion()
+const { state, saveCreds } =
+await useMultiFileAuthState('./auth')
+
+const { version } =
+await fetchLatestBaileysVersion()
 
 const sock = makeWASocket({
 auth: state,
 version,
-printQRInTerminal: true,
-browser: ['BOT FIX', 'Chrome', '1.0']
+browser: ['FNAF BOT', 'Chrome', '1.0']
 })
 
 /* =========================
-   CONNECTION
+   CONEXÃO
 ========================= */
 
-sock.ev.on('connection.update', ({ connection, qr, lastDisconnect }) => {
-
-if (qr) qrcode.generate(qr, { small: true })
+sock.ev.on(
+'connection.update',
+async ({ connection, lastDisconnect }) => {
 
 if (connection === 'open') {
-console.log("🤖 BOT ONLINE")
+
+console.clear()
+
+console.log('🤖 BOT ONLINE')
+console.log('✅ conectado no WhatsApp')
 }
 
 if (connection === 'close') {
-const code = lastDisconnect?.error?.output?.statusCode
-console.log("❌ caiu:", code)
+
+const code =
+lastDisconnect?.error?.output?.statusCode
+
+console.log('❌ conexão fechada:', code)
 
 if (code !== DisconnectReason.loggedOut) {
-setTimeout(startBot, 3000)
-}
-}
 
-})
+console.log('🔄 reconectando...')
+
+setTimeout(() => {
+startBot()
+}, 5000)
+
+}
+}
+}
+)
 
 sock.ev.on('creds.update', saveCreds)
 
 /* =========================
-   MESSAGES (FIX DEFINITIVO)
+   PAIRING CODE
 ========================= */
 
-sock.ev.on('messages.upsert', async ({ messages }) => {
+if (!sock.authState.creds.registered) {
+
+const number =
+await question('\n📱 DIGITE SEU NÚMERO COM DDI:\n')
+
+setTimeout(async () => {
 
 try {
 
-const m = messages?.[0]
+const code =
+await sock.requestPairingCode(number)
+
+console.log('\n🔐 CÓDIGO:\n')
+
+console.log(code)
+
+console.log('\n📲 coloque esse código no WhatsApp\n')
+
+} catch (err) {
+
+console.log('❌ erro ao gerar código')
+console.log(err)
+
+}
+
+}, 5000)
+}
+
+/* =========================
+   MENSAGENS
+========================= */
+
+sock.ev.on(
+'messages.upsert',
+async ({ messages }) => {
+
+try {
+
+const m = messages[0]
+
 if (!m?.message) return
 if (m.key.fromMe) return
 
 const jid = m.key.remoteJid
+
 const msg = m.message
 
 const body =
@@ -130,47 +270,180 @@ msg.conversation ||
 msg.extendedTextMessage?.text ||
 msg.imageMessage?.caption ||
 msg.videoMessage?.caption ||
-msg.buttonsResponseMessage?.selectedButtonId ||
-msg.listResponseMessage?.singleSelectReply?.selectedRowId ||
 ''
 
 const text = body.trim().toLowerCase()
 
 if (!text) return
 
-console.log("📨 BODY:", text)
+console.log('📨', text)
 
 const user = getUser(jid)
 
 /* ================= MENU ================= */
 
-if (text === '!menu') {
-return sock.sendMessage(jid, { text: menu(user) })
+if (
+text === '!menu' ||
+text === 'menu'
+) {
+
+return await sock.sendMessage(jid, {
+text: menu(user)
+})
+}
+
+/* ================= PROFILE ================= */
+
+if (
+text === '!profile' ||
+text === '!perfil'
+) {
+
+return await sock.sendMessage(jid, {
+text: profile(user)
+})
+}
+
+/* ================= PING ================= */
+
+if (text === '!ping') {
+
+return await sock.sendMessage(jid, {
+text: '🏓 pong'
+})
 }
 
 /* ================= WORK ================= */
 
 if (text === '!work') {
-work(user)
-return sock.sendMessage(jid, {
-text: `💰 ganhou dinheiro\nsaldo: ${user.money}`
+
+const result = work(user)
+
+let txt =
+`💰 você ganhou ${result.gain} moedas`
+
+if (result.levelUp) {
+txt += '\n⭐ LEVEL UP!'
+}
+
+return await sock.sendMessage(jid, {
+text: txt
 })
 }
 
 /* ================= CASINO ================= */
 
 if (text.startsWith('!casino')) {
-const bet = parseInt(text.split(' ')[1]) || 10
-const result = casino(user, bet)
-return sock.sendMessage(jid, { text: result })
+
+const bet =
+parseInt(text.split(' ')[1])
+
+const result =
+casino(user, bet)
+
+return await sock.sendMessage(jid, {
+text: result
+})
+}
+
+/* ================= BANK ================= */
+
+if (text === '!bank') {
+
+return await sock.sendMessage(jid, {
+text:
+`🏦 BANCO\n\n💰 carteira: ${user.money}\n🏦 banco: ${user.bank}`
+})
+}
+
+/* ================= DEPOSIT ================= */
+
+if (text.startsWith('!deposit')) {
+
+const amount =
+parseInt(text.split(' ')[1])
+
+if (isNaN(amount)) {
+return sock.sendMessage(jid, {
+text: '❌ valor inválido'
+})
+}
+
+if (amount > user.money) {
+return sock.sendMessage(jid, {
+text: '❌ dinheiro insuficiente'
+})
+}
+
+user.money -= amount
+user.bank += amount
+
+return sock.sendMessage(jid, {
+text: `🏦 depositou ${amount}`
+})
+}
+
+/* ================= WITHDRAW ================= */
+
+if (text.startsWith('!withdraw')) {
+
+const amount =
+parseInt(text.split(' ')[1])
+
+if (isNaN(amount)) {
+return sock.sendMessage(jid, {
+text: '❌ valor inválido'
+})
+}
+
+if (amount > user.bank) {
+return sock.sendMessage(jid, {
+text: '❌ banco insuficiente'
+})
+}
+
+user.bank -= amount
+user.money += amount
+
+return sock.sendMessage(jid, {
+text: `💰 sacou ${amount}`
+})
+}
+
+/* ================= DADO ================= */
+
+if (text === '!dado') {
+
+const dice =
+Math.floor(Math.random() * 6) + 1
+
+return sock.sendMessage(jid, {
+text: `🎲 dado: ${dice}`
+})
+}
+
+/* ================= COINFLIP ================= */
+
+if (text === '!coinflip') {
+
+const flip =
+Math.random() > 0.5
+? 'cara'
+: 'coroa'
+
+return sock.sendMessage(jid, {
+text: `🪙 ${flip}`
+})
 }
 
 } catch (err) {
-console.log("❌ ERRO:", err)
+
+console.log('❌ erro:')
+console.log(err)
+
 }
 
 })
-
 }
 
 startBot()
